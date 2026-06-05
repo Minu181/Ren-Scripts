@@ -1125,7 +1125,7 @@ function Library:CreateWindow(options)
         local fabUiLabel = Utility:Create("TextLabel", {
             Parent = fab,
             Size = UDim2.new(0.5, 0, 1, 0),
-            Position = UDim2.new(0.5, 0, 0, 0),
+            Position = UDim2.new(0.7, 0, 0, 0),
             BackgroundTransparency = 1,
             Text = "UI",
             Font = Enum.Font.GothamBold,
@@ -1590,7 +1590,6 @@ function Library:CreateWindow(options)
 
                         local trackHeight = 6
                         local knobSize = 16
-                        local hitboxHeight = 32
                         local trackY = 21
 
                         local track = Utility:Create("Frame", {
@@ -1621,10 +1620,20 @@ function Library:CreateWindow(options)
                             Rotation = 90
                         })
 
-                        local knob = Utility:Create("Frame", {
+                        local knobHitboxSize = 24
+                        local knobHitbox = Utility:Create("TextButton", {
                             Parent = fill,
+                            Size = UDim2.new(0, knobHitboxSize, 0, knobHitboxSize),
+                            Position = UDim2.new(1, -knobHitboxSize/2, 0.5, -knobHitboxSize/2),
+                            BackgroundTransparency = 1,
+                            Text = "",
+                            AutoButtonColor = false,
+                            ZIndex = 4
+                        })
+                        local knob = Utility:Create("Frame", {
+                            Parent = knobHitbox,
                             Size = UDim2.new(0, knobSize, 0, knobSize),
-                            Position = UDim2.new(1, -knobSize/2, 0.5, -knobSize/2),
+                            Position = UDim2.new(0.5, -knobSize/2, 0.5, -knobSize/2),
                             BackgroundColor3 = ThemeManager.Themes.Default.Text,
                             ZIndex = 3
                         })
@@ -1660,16 +1669,6 @@ function Library:CreateWindow(options)
                         })
                         ThemeManager:Register(tooltipText, "TextColor3", "Accent")
 
-                        local hitbox = Utility:Create("TextButton", {
-                            Parent = sldFrame,
-                            Size = UDim2.new(1, 0, 0, hitboxHeight),
-                            Position = UDim2.new(0, 0, 0, 16),
-                            BackgroundTransparency = 1,
-                            Text = "",
-                            AutoButtonColor = false,
-                            ZIndex = 5
-                        })
-
                         local dragging = false
                         local hover = false
                         local dragInput = nil
@@ -1677,7 +1676,7 @@ function Library:CreateWindow(options)
                         tooltipText.Text = tostring(value)
 
                         local function setKnobSize(size)
-                            Animator:Tween(knob, {Size = UDim2.new(0, size, 0, size), Position = UDim2.new(1, -size/2, 0.5, -size/2)}, 0.2, Enum.EasingStyle.Back)
+                            Animator:Tween(knob, {Size = UDim2.new(0, size, 0, size), Position = UDim2.new(0.5, -size/2, 0.5, -size/2)}, 0.2, Enum.EasingStyle.Back)
                         end
 
                         local function setFill(percent)
@@ -1731,21 +1730,21 @@ function Library:CreateWindow(options)
                             end
                         end
 
-                        Library.Janitor:Add(hitbox.MouseEnter:Connect(function()
+                        Library.Janitor:Add(knobHitbox.MouseEnter:Connect(function()
                             hover = true
                             if not dragging then
                                 setKnobSize(knobSize + 2)
                                 Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.15}, 0.2)
                             end
                         end))
-                        Library.Janitor:Add(hitbox.MouseLeave:Connect(function()
+                        Library.Janitor:Add(knobHitbox.MouseLeave:Connect(function()
                             hover = false
                             if not dragging then
                                 setKnobSize(knobSize)
                                 Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.3}, 0.2)
                             end
                         end))
-                        Library.Janitor:Add(hitbox.InputBegan:Connect(function(input)
+                        Library.Janitor:Add(knobHitbox.InputBegan:Connect(function(input)
                             if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not dragInput then
                                 startDrag(input)
                             end
