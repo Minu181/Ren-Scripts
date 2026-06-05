@@ -748,8 +748,8 @@ function Library:CreateWindow(options)
     })
     ThemeManager:Register(canvasGroup, "BackgroundColor3", "Background")
     Utility:Create("UICorner", { Parent = canvasGroup, CornerRadius = UDim.new(0, 12) })
-    local stroke = Utility:Create("UIStroke", { Parent = canvasGroup, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5 })
-    ThemeManager:Register(stroke, "Color", "Border")
+    local stroke = Utility:Create("UIStroke", { Parent = canvasGroup, Thickness = 1, Color = ThemeManager.Themes.Default.Accent, Transparency = 0 })
+    ThemeManager:Register(stroke, "Color", "Accent")
 
     -- Shadow proxy: CanvasGroup clips descendants, so we put shadow on a sibling frame
     local shadowFrame = Utility:Create("Frame", {
@@ -938,7 +938,7 @@ function Library:CreateWindow(options)
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left
     })
-    ThemeManager:Register(titleLbl, "TextColor3", "Text")
+    ThemeManager:Register(titleLbl, "TextColor3", "Accent")
 
     -- Traffic light hover effects (target the visual circle, not the hitbox)
     local function addTrafficHover(visual, color)
@@ -1155,7 +1155,7 @@ function Library:CreateWindow(options)
             end
         end))
 
-        self.Janitor:Add(fab.InputChanged:Connect(function(input)
+        self.Janitor:Add(UserInputService.InputChanged:Connect(function(input, processed)
             if fabDragging and (input.UserInputType == Enum.UserInputType.MouseMovement
                or input.UserInputType == Enum.UserInputType.Touch) then
                 if fabStartInputPos and (input.Position - fabStartInputPos).Magnitude > DRAG_THRESHOLD then
@@ -1171,7 +1171,7 @@ function Library:CreateWindow(options)
             end
         end))
 
-        self.Janitor:Add(fab.InputEnded:Connect(function(input)
+        self.Janitor:Add(UserInputService.InputEnded:Connect(function(input, processed)
             if fabDragging then
                 local wasDrag = fabDragMoved
                 fabDragging = false
@@ -1186,7 +1186,7 @@ function Library:CreateWindow(options)
                         canvasGroup.Visible = true
                         shadowFrame.Visible = true
                         Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-                        Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
+                        Animator:Tween(stroke, {Transparency = 0}, 0.3)
                         local shadow = shadowFrame:FindFirstChild("Shadow")
                         if shadow then
                             Animator:Tween(shadow, {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
@@ -1237,7 +1237,7 @@ function Library:CreateWindow(options)
                 canvasGroup.Visible = true
                 shadowFrame.Visible = true
                 Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-                Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
+                Animator:Tween(stroke, {Transparency = 0}, 0.3)
                 Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
                 if not windowObj.Minimized then
                     dragBar.Visible = true
