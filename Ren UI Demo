@@ -1306,11 +1306,11 @@ function Library:CreateWindow(options)
                     if compDef.Type == "Button" then
                         local btn = Utility:Create("TextButton", {
                             Parent = secFrame,
-                            Size = UDim2.new(1, 0, 0, 48),
+                            Size = UDim2.new(1, 0, 0, isMobile and 48 or 32),
                             AutoButtonColor = false,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamSemibold,
-                            TextSize = 14
+                            TextSize = isMobile and 14 or 13
                         })
                         ThemeManager:Register(btn, "BackgroundColor3", "Container")
                         ThemeManager:Register(btn, "TextColor3", "Text")
@@ -1339,7 +1339,7 @@ function Library:CreateWindow(options)
                      elseif compDef.Type == "Toggle" then
                          local tglFrame = Utility:Create("Frame", {
                              Parent = secFrame,
-                             Size = UDim2.new(1, 0, 0, 48),
+                             Size = UDim2.new(1, 0, 0, isMobile and 48 or 32),
                              BackgroundTransparency = 1
                          })
                          local lbl = Utility:Create("TextLabel", {
@@ -1348,13 +1348,13 @@ function Library:CreateWindow(options)
                              BackgroundTransparency = 1,
                              Text = compDef.Name,
                              Font = Enum.Font.GothamMedium,
-                             TextSize = 14,
+                             TextSize = isMobile and 14 or 13,
                              TextXAlignment = Enum.TextXAlignment.Left
                          })
                          ThemeManager:Register(lbl, "TextColor3", "SubText")
 
-                         local boxHeight = 32
-                         local boxWidth = 54
+                         local boxHeight = isMobile and 32 or 22
+                         local boxWidth = isMobile and 54 or 42
                          local box = Utility:Create("TextButton", {
                              Parent = tglFrame,
                              Size = UDim2.new(0, boxWidth, 0, boxHeight),
@@ -1367,8 +1367,8 @@ function Library:CreateWindow(options)
                          local boxStroke = Utility:Create("UIStroke", {Parent = box, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
                          ThemeManager:Register(boxStroke, "Color", "Border")
 
-                         local indSize = 26
-                         local indOff = 3
+                         local indSize = isMobile and 26 or 18
+                         local indOff = isMobile and 3 or 2
                          local indicator = Utility:Create("Frame", {
                              Parent = box,
                              Size = UDim2.new(0, indSize, 0, indSize),
@@ -1451,7 +1451,7 @@ function Library:CreateWindow(options)
                     elseif compDef.Type == "Slider" then
                         local sldFrame = Utility:Create("Frame", {
                             Parent = secFrame,
-                            Size = UDim2.new(1, 0, 0, 64),
+                            Size = UDim2.new(1, 0, 0, isMobile and 64 or 48),
                             BackgroundTransparency = 1
                         })
                         local lbl = Utility:Create("TextLabel", {
@@ -1460,7 +1460,7 @@ function Library:CreateWindow(options)
                             BackgroundTransparency = 1,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamMedium,
-                            TextSize = 14,
+                            TextSize = isMobile and 14 or 13,
                             TextXAlignment = Enum.TextXAlignment.Left
                         })
                         ThemeManager:Register(lbl, "TextColor3", "Text")
@@ -1472,13 +1472,13 @@ function Library:CreateWindow(options)
                             BackgroundTransparency = 1,
                             Text = tostring(compDef.Default),
                             Font = Enum.Font.GothamMedium,
-                            TextSize = 14,
+                            TextSize = isMobile and 14 or 13,
                             TextXAlignment = Enum.TextXAlignment.Right
                         })
                         ThemeManager:Register(valLbl, "TextColor3", "SubText")
 
-                        local bgHeight = 12
-                        local bgOffset = -20
+                        local bgHeight = isMobile and 12 or 8
+                        local bgOffset = isMobile and -20 or -12
                         local bg = Utility:Create("TextButton", {
                             Parent = sldFrame,
                             Size = UDim2.new(1, 0, 0, bgHeight),
@@ -1497,7 +1497,7 @@ function Library:CreateWindow(options)
                         ThemeManager:Register(fill, "BackgroundColor3", "Accent")
                         Utility:Create("UICorner", {Parent = fill, CornerRadius = UDim.new(1, 0)})
 
-                        local knobSize = 24
+                        local knobSize = isMobile and 24 or 16
                         local knob = Utility:Create("Frame", {
                             Parent = fill,
                             Size = UDim2.new(0, knobSize, 0, knobSize),
@@ -1611,8 +1611,8 @@ function Library:CreateWindow(options)
                         if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
                         
                     elseif compDef.Type == "Dropdown" then
-                        local dpHeight = 72
-                        local dpExpanded = 172
+                        local dpHeight = isMobile and 72 or 52
+                        local dpExpanded = isMobile and 172 or 160
                         local dpFrame = Utility:Create("Frame", {
                             Parent = secFrame,
                             Size = UDim2.new(1, 0, 0, dpHeight),
@@ -1628,19 +1628,19 @@ function Library:CreateWindow(options)
                             BackgroundTransparency = 1,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamMedium,
-                            TextSize = 14,
+                            TextSize = isMobile and 14 or 13,
                             TextXAlignment = Enum.TextXAlignment.Left
                         })
                         ThemeManager:Register(lbl, "TextColor3", "Text")
 
-                        local boxHeight = 48
+                        local boxHeight = isMobile and 48 or 28
                         local box = Utility:Create("TextButton", {
                             Parent = dpFrame,
                             Size = UDim2.new(1, 0, 0, boxHeight),
                             Position = UDim2.new(0, 0, 0, 24),
                             Text = " " .. tostring(compDef.Default or "Select..."),
                             Font = Enum.Font.GothamMedium,
-                            TextSize = 14,
+                            TextSize = isMobile and 14 or 13,
                             TextXAlignment = Enum.TextXAlignment.Left,
                             AutoButtonColor = false
                         })
@@ -1661,8 +1661,8 @@ function Library:CreateWindow(options)
                         })
                         ThemeManager:Register(icon, "TextColor3", "SubText")
                         
-                        local listPos = 76
-                        local optHeight = 36
+                        local listPos = isMobile and 76 or 56
+                        local optHeight = isMobile and 36 or 26
                         local listFrame = Utility:Create("ScrollingFrame", {
                             Parent = dpFrame,
                             Size = UDim2.new(1, 0, 0, 100),
@@ -1701,7 +1701,7 @@ function Library:CreateWindow(options)
                                 BackgroundTransparency = 1,
                                 Text = "  " .. item,
                                 Font = Enum.Font.GothamMedium,
-                                TextSize = 14,
+                                TextSize = isMobile and 14 or 13,
                                 TextXAlignment = Enum.TextXAlignment.Left,
                                 TextTruncate = Enum.TextTruncate.AtEnd,
                                 AutoButtonColor = false
