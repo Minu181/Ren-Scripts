@@ -1074,32 +1074,73 @@ function Library:CreateWindow(options)
         Visible = true
     })
     
-    -- FAB: Mobile/tablet only. Desktop uses RightShift to hide/show.
+    -- FAB: Always visible on mobile. Premium accent-themed rounded rectangle.
     if isMobile then
-        local fabSize = 48
+        local fabWidth = 90
+        local fabHeight = 36
+
         fab = Utility:Create("TextButton", {
             Parent = gui,
-            Size = UDim2.new(0, fabSize, 0, fabSize),
+            Size = UDim2.new(0, fabWidth, 0, fabHeight),
             Position = fabStoredPos,
             AnchorPoint = Vector2.new(0, 0.5),
-            Text = "UI",
-            Font = Enum.Font.GothamBold,
-            TextSize = 16,
-            Visible = false,
-            AutoButtonColor = false
+            Text = "",
+            AutoButtonColor = false,
+            Visible = true,
+            ClipsDescendants = false
         })
-        Utility:Create("UICorner", {Parent = fab, CornerRadius = UDim.new(1, 0)})
-        ThemeManager:Register(Utility:Create("UIStroke", {Parent = fab, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.3}), "Color", "Border")
-        Utility:AddShadow(fab, 0.3, 12)
-        ThemeManager:Register(fab, "BackgroundColor3", "Container")
-        ThemeManager:Register(fab, "TextColor3", "Text")
+        Utility:Create("UICorner", {Parent = fab, CornerRadius = UDim.new(0, 12)})
 
-        -- Drag-vs-click tracking state
+        -- Solid outline (accent themed)
+        local fabStroke = Utility:Create("UIStroke", {
+            Parent = fab,
+            Thickness = 2,
+            Color = ThemeManager.Themes.Default.Accent,
+            Transparency = 0
+        })
+        ThemeManager:Register(fabStroke, "Color", "Accent")
+
+        -- Accent background
+        ThemeManager:Register(fab, "BackgroundColor3", "Accent")
+
+        -- Premium shadow
+        Utility:AddShadow(fab, 0.3, 14)
+
+        -- Inner label (text color = background theme = contrast)
+        local fabLabel = Utility:Create("TextLabel", {
+            Parent = fab,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "REN UI",
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
+        ThemeManager:Register(fabLabel, "TextColor3", "Background")
+
+        -- Drag/click state
         local fabDragging = false
         local fabDragMoved = false
         local fabStartInputPos = nil
         local fabStartObjPos = nil
+        local fabTargetPos = fabStoredPos
+        local fabCurrentPos = fabStoredPos
         local DRAG_THRESHOLD = 5
+
+        -- Insane smooth drag (lerp position each frame)
+        self.Janitor:Add(RunService.RenderStepped:Connect(function()
+            if not fab or not fab.Parent then return end
+            if fabDragging and fabDragMoved then
+                local alpha = 0.35
+                fabCurrentPos = UDim2.new(
+                    fabCurrentPos.X.Scale,
+                    fabCurrentPos.X.Offset + (fabTargetPos.X.Offset - fabCurrentPos.X.Offset) * alpha,
+                    fabCurrentPos.Y.Scale,
+                    fabCurrentPos.Y.Offset + (fabTargetPos.Y.Offset - fabCurrentPos.Y.Offset) * alpha
+                )
+                fab.Position = fabCurrentPos
+            end
+        end))
 
         self.Janitor:Add(fab.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -1108,6 +1149,9 @@ function Library:CreateWindow(options)
                 fabDragMoved = false
                 fabStartInputPos = input.Position
                 fabStartObjPos = fab.Position
+                fabCurrentPos = fab.Position
+                -- Click animation: scale down slightly (press feel)
+                Animator:Tween(fab, {Size = UDim2.new(0, fabWidth - 4, 0, fabHeight - 2)}, 0.08, Enum.EasingStyle.Quad)
             end
         end))
 
@@ -1119,11 +1163,10 @@ function Library:CreateWindow(options)
                 end
                 if fabDragMoved and fabStartObjPos then
                     local delta = input.Position - fabStartInputPos
-                    fabStoredPos = UDim2.new(
+                    fabTargetPos = UDim2.new(
                         fabStartObjPos.X.Scale, fabStartObjPos.X.Offset + delta.X,
                         fabStartObjPos.Y.Scale, fabStartObjPos.Y.Offset + delta.Y
                     )
-                    fab.Position = fabStoredPos
                 end
             end
         end))
@@ -1134,17 +1177,38 @@ function Library:CreateWindow(options)
                 fabDragging = false
                 fabStartInputPos = nil
                 fabStartObjPos = nil
+                -- Restore size with bouncy spring
+                Animator:Tween(fab, {Size = UDim2.new(0, fabWidth, 0, fabHeight)}, 0.2, Enum.EasingStyle.Back)
                 if not wasDrag then
-                    windowObj.Hidden = false
-                    fab.Visible = false
-                    canvasGroup.Visible = true
-                    shadowFrame.Visible = true
-                    Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-                    Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
-                    local shadow = shadowFrame:FindFirstChild("Shadow")
-                    if shadow then
-                        Animator:Tween(shadow, {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
+                    -- Real click → toggle UI
+                    if windowObj.Hidden then
+                        windowObj.Hidden = false
+                        canvasGroup.Visible = true
+                        shadowFrame.Visible = true
+                        Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
+                        Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
+                        local shadow = shadowFrame:FindFirstChild("Shadow")
+                        if shadow then
+                            Animator:Tween(shadow, {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
+                        end
+                    else
+                        windowObj.Hidden = true
+                        Animator:Tween(canvasGroup, {GroupTransparency = 1}, 0.3)
+                        Animator:Tween(stroke, {Transparency = 1}, 0.3)
+                        local shadow = shadowFrame:FindFirstChild("Shadow")
+                        if shadow then
+                            Animator:Tween(shadow, {ImageTransparency = 1}, 0.3)
+                        end
+                        task.delay(0.3, function()
+                            if windowObj.Hidden then
+                                canvasGroup.Visible = false
+                                shadowFrame.Visible = false
+                            end
+                        end)
                     end
+                else
+                    -- Save final dragged position
+                    fabStoredPos = fab.Position
                 end
             end
         end))
@@ -1175,7 +1239,6 @@ function Library:CreateWindow(options)
                 Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
                 Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
                 Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
-                fab.Visible = false
                 if not windowObj.Minimized then
                     dragBar.Visible = true
                 end
