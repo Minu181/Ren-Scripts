@@ -709,8 +709,16 @@ end
 
 function Library:CreateWindow(options)
     local title = options.Title or "Premium UI"
-    local size = options.Size or (isPhone and UDim2.new(0, 400, 0, 300))
-                                  or (isTablet and UDim2.new(0, 550, 0, 350)
+
+    -- Re-evaluate device detection at window creation time
+    -- (file-level detection may have run before viewport was ready)
+    local _curViewport = (Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize) or Vector2.new(1920, 1080)
+    local _curIsMobile = _isTouch and not _isConsole
+    local _curIsPhone = _curIsMobile and (math.min(_curViewport.X, _curViewport.Y) < 700)
+    local _curIsTablet = _curIsMobile and not _curIsPhone
+
+    local size = options.Size or (_curIsPhone and UDim2.new(0, 400, 0, 300))
+                                  or (_curIsTablet and UDim2.new(0, 550, 0, 350)
                                   or UDim2.new(0, 600, 0, 400))
 
     -- Forward declaration: fab is assigned later (around line 1116), but
@@ -983,8 +991,8 @@ function Library:CreateWindow(options)
             Animator:Tween(canvasGroup, {Size = UDim2.new(0, canvasGroup.Size.X.Offset, 0, 40)}, 0.4, Enum.EasingStyle.Quint)
             dragBar.Visible = false
         else
-            local restoreMax = isPhone and UDim2.new(0, 500, 0, 400)
-                                   or (isTablet and UDim2.new(0, 600, 0, 400)
+            local restoreMax = _curIsPhone and UDim2.new(0, 500, 0, 400)
+                                   or (_curIsTablet and UDim2.new(0, 600, 0, 400)
                                    or UDim2.new(0, 800, 0, 600))
             Animator:Tween(canvasGroup, {Size = windowObj.Maximized and restoreMax or size}, 0.4, Enum.EasingStyle.Quint)
             dragBar.Visible = true
@@ -995,8 +1003,8 @@ function Library:CreateWindow(options)
         if windowObj.Minimized then return end
         windowObj.Maximized = not windowObj.Maximized
         if windowObj.Maximized then
-            local maxSize = isPhone and UDim2.new(0, 500, 0, 400)
-                                or (isTablet and UDim2.new(0, 600, 0, 400)
+            local maxSize = _curIsPhone and UDim2.new(0, 500, 0, 400)
+                                or (_curIsTablet and UDim2.new(0, 600, 0, 400)
                                 or UDim2.new(0, 800, 0, 600))
             Animator:Tween(canvasGroup, {Size = maxSize, Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.4, Enum.EasingStyle.Quint)
         else
