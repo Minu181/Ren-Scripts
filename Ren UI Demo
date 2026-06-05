@@ -748,8 +748,8 @@ function Library:CreateWindow(options)
     })
     ThemeManager:Register(canvasGroup, "BackgroundColor3", "Background")
     Utility:Create("UICorner", { Parent = canvasGroup, CornerRadius = UDim.new(0, 12) })
-    local stroke = Utility:Create("UIStroke", { Parent = canvasGroup, Thickness = 1, Color = ThemeManager.Themes.Default.Accent, Transparency = 0 })
-    ThemeManager:Register(stroke, "Color", "Accent")
+    local stroke = Utility:Create("UIStroke", { Parent = canvasGroup, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5 })
+    ThemeManager:Register(stroke, "Color", "Border")
 
     -- Shadow proxy: CanvasGroup clips descendants, so we put shadow on a sibling frame
     local shadowFrame = Utility:Create("Frame", {
@@ -938,7 +938,7 @@ function Library:CreateWindow(options)
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left
     })
-    ThemeManager:Register(titleLbl, "TextColor3", "Accent")
+    ThemeManager:Register(titleLbl, "TextColor3", "Text")
 
     -- Traffic light hover effects (target the visual circle, not the hitbox)
     local function addTrafficHover(visual, color)
@@ -1074,7 +1074,7 @@ function Library:CreateWindow(options)
         Visible = true
     })
     
-    -- FAB: Always visible on mobile. Premium accent-themed rounded rectangle.
+    -- FAB: Always visible on mobile. Premium themed rounded rectangle.
     if isMobile then
         local fabWidth = 90
         local fabHeight = 36
@@ -1087,7 +1087,8 @@ function Library:CreateWindow(options)
             Text = "",
             AutoButtonColor = false,
             Visible = true,
-            ClipsDescendants = false
+            ClipsDescendants = false,
+            BackgroundTransparency = windowObj.UserOpacity
         })
         Utility:Create("UICorner", {Parent = fab, CornerRadius = UDim.new(0, 12)})
 
@@ -1100,13 +1101,13 @@ function Library:CreateWindow(options)
         })
         ThemeManager:Register(fabStroke, "Color", "Accent")
 
-        -- Accent background
-        ThemeManager:Register(fab, "BackgroundColor3", "Accent")
+        -- Background = same as UI container (Background theme)
+        ThemeManager:Register(fab, "BackgroundColor3", "Background")
 
         -- Premium shadow
         Utility:AddShadow(fab, 0.3, 14)
 
-        -- Inner label (text color = background theme = contrast)
+        -- Inner label (text = accent theme, same as outline)
         local fabLabel = Utility:Create("TextLabel", {
             Parent = fab,
             Size = UDim2.new(1, 0, 1, 0),
@@ -1114,9 +1115,10 @@ function Library:CreateWindow(options)
             Text = "REN UI",
             Font = Enum.Font.GothamBold,
             TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Center
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextTransparency = windowObj.UserOpacity
         })
-        ThemeManager:Register(fabLabel, "TextColor3", "Background")
+        ThemeManager:Register(fabLabel, "TextColor3", "Accent")
 
         -- Drag/click state
         local fabDragging = false
@@ -1125,6 +1127,7 @@ function Library:CreateWindow(options)
         local fabStartObjPos = nil
         local fabTargetPos = fabStoredPos
         local fabCurrentPos = fabStoredPos
+        local dragInput = nil
         local DRAG_THRESHOLD = 5
 
         -- Insane smooth drag (lerp position each frame)
@@ -1142,11 +1145,13 @@ function Library:CreateWindow(options)
             end
         end))
 
+        -- InputBegan: start drag/click (only fires on FAB, that's fine)
         self.Janitor:Add(fab.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1
                or input.UserInputType == Enum.UserInputType.Touch then
                 fabDragging = true
                 fabDragMoved = false
+                dragInput = input
                 fabStartInputPos = input.Position
                 fabStartObjPos = fab.Position
                 fabCurrentPos = fab.Position
@@ -1155,8 +1160,9 @@ function Library:CreateWindow(options)
             end
         end))
 
+        -- InputChanged: use UserInputService so drag continues when finger leaves FAB
         self.Janitor:Add(UserInputService.InputChanged:Connect(function(input, processed)
-            if fabDragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            if fabDragging and input == dragInput and (input.UserInputType == Enum.UserInputType.MouseMovement
                or input.UserInputType == Enum.UserInputType.Touch) then
                 if fabStartInputPos and (input.Position - fabStartInputPos).Magnitude > DRAG_THRESHOLD then
                     fabDragMoved = true
@@ -1171,10 +1177,12 @@ function Library:CreateWindow(options)
             end
         end))
 
+        -- InputEnded: use UserInputService so release works off-element
         self.Janitor:Add(UserInputService.InputEnded:Connect(function(input, processed)
-            if fabDragging then
+            if fabDragging and input == dragInput then
                 local wasDrag = fabDragMoved
                 fabDragging = false
+                dragInput = nil
                 fabStartInputPos = nil
                 fabStartObjPos = nil
                 -- Restore size with bouncy spring
@@ -1186,7 +1194,7 @@ function Library:CreateWindow(options)
                         canvasGroup.Visible = true
                         shadowFrame.Visible = true
                         Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-                        Animator:Tween(stroke, {Transparency = 0}, 0.3)
+                        Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
                         local shadow = shadowFrame:FindFirstChild("Shadow")
                         if shadow then
                             Animator:Tween(shadow, {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
@@ -1237,7 +1245,7 @@ function Library:CreateWindow(options)
                 canvasGroup.Visible = true
                 shadowFrame.Visible = true
                 Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-                Animator:Tween(stroke, {Transparency = 0}, 0.3)
+                Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
                 Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
                 if not windowObj.Minimized then
                     dragBar.Visible = true
