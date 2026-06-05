@@ -889,7 +889,7 @@ function Library:CreateWindow(options)
     })
 
     local HITBOX = 20
-    local VISUAL = 16
+    local VISUAL = 12
     local VISUAL_GAP = 2
     local HALF = HITBOX / 2
 
