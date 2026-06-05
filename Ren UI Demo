@@ -711,14 +711,11 @@ function Library:CreateWindow(options)
     local title = options.Title or "Premium UI"
     local size = options.Size or UDim2.new(0, 600, 0, 400)
 
-    -- Device-aware sizing: phone uses full viewport, tablet uses bounded, desktop uses 600x400
-    if isPhone then
-        local vp = _viewportSize
-        size = UDim2.new(0, vp.X - 20, 0, vp.Y - 100)
-    elseif isTablet then
-        local vp = _viewportSize
-        size = UDim2.new(0, math.min(vp.X - 40, 800), 0, math.min(vp.Y - 80, 600))
-    end
+    -- Forward declaration: fab is assigned later (around line 1116), but
+    -- the close button handler references it. Declaring it here makes it
+    -- a local in the entire function scope, so closures capture it correctly.
+    local fab = nil
+    local fabStoredPos = UDim2.new(0, 0, 0.5, 0)   -- LEFT CENTER, anchored at (0, 0.5)
 
     local gui = Utility:Create("ScreenGui", {
         Name = "PremiumFramework",
@@ -886,72 +883,65 @@ function Library:CreateWindow(options)
     
     local trafficContainer = Utility:Create("Frame", {
         Parent = topbar,
-        Size = UDim2.new(0, isPhone and 80 or (isTablet and 64 or 60), 1, 0),
-        Position = UDim2.new(0, isMobile and 8 or 12, 0, 0),
+        Size = UDim2.new(0, 104, 1, 0),
+        Position = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1
     })
 
-    local tlSize = isPhone and 32 or (isTablet and 24 or 12)
-    local tlGap = isPhone and 8 or 4
-    local tlHalf = tlSize / 2
+    local HITBOX = 32
+    local VISUAL = 12
+    local GAP = 4
+    local HALF = HITBOX / 2
 
-    local closeBtn = Utility:Create("TextButton", {
-        Parent = trafficContainer,
-        Size = UDim2.new(0, tlSize, 0, tlSize),
-        Position = UDim2.new(0, 0, 0.5, -tlHalf),
-        BackgroundColor3 = Color3.fromRGB(255, 95, 86),
-        Text = "",
-        AutoButtonColor = false
-    })
-    Utility:Create("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(1, 0)})
+    local function makeTrafficLight(parent, color, xOffset)
+        local hitbox = Utility:Create("TextButton", {
+            Parent = parent,
+            Size = UDim2.new(0, HITBOX, 0, HITBOX),
+            Position = UDim2.new(0, xOffset, 0.5, -HALF),
+            BackgroundTransparency = 1,
+            Text = "",
+            AutoButtonColor = false
+        })
+        local visual = Utility:Create("Frame", {
+            Parent = hitbox,
+            Size = UDim2.new(0, VISUAL, 0, VISUAL),
+            Position = UDim2.new(0.5, -VISUAL/2, 0.5, -VISUAL/2),
+            BackgroundColor3 = color
+        })
+        Utility:Create("UICorner", {Parent = visual, CornerRadius = UDim.new(1, 0)})
+        return hitbox, visual
+    end
 
-    local minBtn = Utility:Create("TextButton", {
-        Parent = trafficContainer,
-        Size = UDim2.new(0, tlSize, 0, tlSize),
-        Position = UDim2.new(0, tlSize + tlGap, 0.5, -tlHalf),
-        BackgroundColor3 = Color3.fromRGB(255, 189, 46),
-        Text = "",
-        AutoButtonColor = false
-    })
-    Utility:Create("UICorner", {Parent = minBtn, CornerRadius = UDim.new(1, 0)})
-
-    local maxBtn = Utility:Create("TextButton", {
-        Parent = trafficContainer,
-        Size = UDim2.new(0, tlSize, 0, tlSize),
-        Position = UDim2.new(0, 2 * (tlSize + tlGap), 0.5, -tlHalf),
-        BackgroundColor3 = Color3.fromRGB(39, 201, 63),
-        Text = "",
-        AutoButtonColor = false,
-        Visible = not isPhone
-    })
-    Utility:Create("UICorner", {Parent = maxBtn, CornerRadius = UDim.new(1, 0)})
+    local closeBtn, closeVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(255, 95, 86), 0)
+    local minBtn, minVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(255, 189, 46), HITBOX + GAP)
+    local maxBtn, maxVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(39, 201, 63), 2 * (HITBOX + GAP))
 
     local titleLbl = Utility:Create("TextLabel", {
         Parent = topbar,
-        Size = UDim2.new(1, isPhone and -100 or (isTablet and -80 or -120), 1, 0),
-        Position = UDim2.new(0, isPhone and 96 or (isTablet and 80 or 75), 0, 0),
+        Size = UDim2.new(1, -130, 1, 0),
+        Position = UDim2.new(0, 120, 0, 0),
         BackgroundTransparency = 1,
         Text = title,
         Font = Enum.Font.GothamBold,
-        TextSize = isMobile and 16 or 14,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     ThemeManager:Register(titleLbl, "TextColor3", "Text")
-    
-    -- Traffic light hover effects
-    local function addTrafficHover(btn, color)
+
+    -- Traffic light hover effects (target the visual circle, not the hitbox)
+    local function addTrafficHover(visual, color)
         local h, s, v = color:ToHSV()
         local hoverColor = Color3.fromHSV(h, s, math.clamp(v - 0.2, 0, 1))
-        self.Janitor:Add(btn.MouseEnter:Connect(function()
-            Animator:Tween(btn, {BackgroundColor3 = hoverColor}, 0.2)
+        self.Janitor:Add(visual.Parent.MouseEnter:Connect(function()
+            Animator:Tween(visual, {BackgroundColor3 = hoverColor}, 0.2)
         end))
-        self.Janitor:Add(btn.MouseLeave:Connect(function()
-            Animator:Tween(btn, {BackgroundColor3 = color}, 0.2)
+        self.Janitor:Add(visual.Parent.MouseLeave:Connect(function()
+            Animator:Tween(visual, {BackgroundColor3 = color}, 0.2)
         end))
     end
-    addTrafficHover(closeBtn, Color3.fromRGB(255, 95, 86))
-    addTrafficHover(minBtn, Color3.fromRGB(255, 189, 46))
-    addTrafficHover(maxBtn, Color3.fromRGB(39, 201, 63))
+    addTrafficHover(closeVisual, Color3.fromRGB(255, 95, 86))
+    addTrafficHover(minVisual, Color3.fromRGB(255, 189, 46))
+    addTrafficHover(maxVisual, Color3.fromRGB(39, 201, 63))
     
     local windowObj = {
         Tabs = {},
@@ -970,7 +960,8 @@ function Library:CreateWindow(options)
         Animator:Tween(canvasGroup, {GroupTransparency = 1}, 0.3)
         Animator:Tween(stroke, {Transparency = 1}, 0.3)
         Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 1}, 0.3)
-if UserInputService.TouchEnabled then
+        if isMobile and fab then
+            fab.Position = fabStoredPos
             fab.Visible = true
         end
         dragBar.Visible = false
@@ -1008,89 +999,43 @@ if UserInputService.TouchEnabled then
     local tabLayout
     local contentContainer
 
-    if isMobile then
-        tabContainer = Utility:Create("Frame", {
-            Parent = canvasGroup,
-            Size = UDim2.new(1, 0, 0, 56),
-            Position = UDim2.new(0, 0, 1, -56),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true
-        })
+    tabContainer = Utility:Create("Frame", {
+        Parent = canvasGroup,
+        Size = UDim2.new(0, 150, 1, -40),
+        Position = UDim2.new(0, 0, 0, 40),
+        BackgroundTransparency = 1
+    })
 
-        tabList = Utility:Create("ScrollingFrame", {
-            Parent = tabContainer,
-            Size = UDim2.new(1, 0, 1, 0),
-            Position = UDim2.new(0, 0, 0, 0),
-            BackgroundTransparency = 1,
-            ScrollBarThickness = 0,
-            ScrollingDirection = Enum.ScrollingDirection.X,
-            CanvasSize = UDim2.new(0, 0, 0, 0),
-            ElasticBehavior = Enum.ElasticBehavior.Never
-        })
-        tabLayout = Utility:Create("UIGridLayout", {
-            Parent = tabList,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            CellSize = UDim2.new(0, 110, 1, -4),
-            CellPadding = UDim2.new(0, 4, 0, 0),
-            FillDirection = Enum.FillDirection.Horizontal
-        })
-        Utility:Create("UIPadding", {
-            Parent = tabList,
-            PaddingLeft = UDim.new(0, 4),
-            PaddingRight = UDim.new(0, 4),
-            PaddingTop = UDim.new(0, 2)
-        })
+    tabList = Utility:Create("ScrollingFrame", {
+        Parent = tabContainer,
+        Size = UDim2.new(1, 0, 1, -10),
+        Position = UDim2.new(0, 0, 0, 5),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 0,
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    })
+    tabLayout = Utility:Create("UIListLayout", {
+        Parent = tabList,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center
+    })
+    Utility:Create("UIPadding", {
+        Parent = tabList,
+        PaddingBottom = UDim.new(0, 10)
+    })
 
-        tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            tabList.CanvasSize = UDim2.new(0, tabLayout.AbsoluteContentSize.X + 8, 0, 0)
-        end)
+    tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        tabList.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
+    end)
 
-        contentContainer = Utility:Create("Frame", {
-            Parent = canvasGroup,
-            Size = UDim2.new(1, 0, 1, -96),
-            Position = UDim2.new(0, 0, 0, 40),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true
-        })
-    else
-        tabContainer = Utility:Create("Frame", {
-            Parent = canvasGroup,
-            Size = UDim2.new(0, 150, 1, -40),
-            Position = UDim2.new(0, 0, 0, 40),
-            BackgroundTransparency = 1
-        })
-
-        tabList = Utility:Create("ScrollingFrame", {
-            Parent = tabContainer,
-            Size = UDim2.new(1, 0, 1, -10),
-            Position = UDim2.new(0, 0, 0, 5),
-            BackgroundTransparency = 1,
-            ScrollBarThickness = 0,
-            CanvasSize = UDim2.new(0, 0, 0, 0)
-        })
-        tabLayout = Utility:Create("UIListLayout", {
-            Parent = tabList,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 5),
-            HorizontalAlignment = Enum.HorizontalAlignment.Center
-        })
-        Utility:Create("UIPadding", {
-            Parent = tabList,
-            PaddingBottom = UDim.new(0, 10)
-        })
-
-        tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            tabList.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
-        end)
-
-        contentContainer = Utility:Create("Frame", {
-            Parent = canvasGroup,
-            Size = UDim2.new(1, -150, 1, -40),
-            Position = UDim2.new(0, 150, 0, 40),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true
-        })
-    end
+    contentContainer = Utility:Create("Frame", {
+        Parent = canvasGroup,
+        Size = UDim2.new(1, -150, 1, -40),
+        Position = UDim2.new(0, 150, 0, 40),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true
+    })
 
     -- Content area where tab contents are displayed
     local contentArea = Utility:Create("Frame", {
@@ -1111,34 +1056,81 @@ if UserInputService.TouchEnabled then
         Visible = true
     })
     
-    -- Mobile FAB
-    local fabSize = isMobile and 48 or 44
-    local fab = Utility:Create("TextButton", {
-        Parent = gui,
-        Size = UDim2.new(0, fabSize, 0, fabSize),
-        Position = UDim2.new(1, -60, 0, 20),
-        Text = "UI",
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
-        Visible = false,
-        AutoButtonColor = false
-    })
-    Utility:Create("UICorner", {Parent = fab, CornerRadius = UDim.new(1, 0)})
-    ThemeManager:Register(Utility:Create("UIStroke", {Parent = fab, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.3}), "Color", "Border")
-    Utility:AddShadow(fab, 0.3, 12)
-    ThemeManager:Register(fab, "BackgroundColor3", "Container")
-    ThemeManager:Register(fab, "TextColor3", "Text")
-    InputManager:MakeDraggable(fab, fab, self.Janitor)
-    
-    self.Janitor:Add(fab.MouseButton1Click:Connect(function()
-        windowObj.Hidden = false
-        fab.Visible = false
-        canvasGroup.Visible = true
-        shadowFrame.Visible = true
-        Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
-        Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
-        Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
-    end))
+    -- FAB: Mobile/tablet only. Desktop uses RightShift to hide/show.
+    if isMobile then
+        local fabSize = 48
+        fab = Utility:Create("TextButton", {
+            Parent = gui,
+            Size = UDim2.new(0, fabSize, 0, fabSize),
+            Position = fabStoredPos,
+            AnchorPoint = Vector2.new(0, 0.5),
+            Text = "UI",
+            Font = Enum.Font.GothamBold,
+            TextSize = 16,
+            Visible = false,
+            AutoButtonColor = false
+        })
+        Utility:Create("UICorner", {Parent = fab, CornerRadius = UDim.new(1, 0)})
+        ThemeManager:Register(Utility:Create("UIStroke", {Parent = fab, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.3}), "Color", "Border")
+        Utility:AddShadow(fab, 0.3, 12)
+        ThemeManager:Register(fab, "BackgroundColor3", "Container")
+        ThemeManager:Register(fab, "TextColor3", "Text")
+
+        -- Drag-vs-click tracking state
+        local fabDragging = false
+        local fabDragMoved = false
+        local fabStartInputPos = nil
+        local fabStartObjPos = nil
+        local DRAG_THRESHOLD = 5
+
+        self.Janitor:Add(fab.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+               or input.UserInputType == Enum.UserInputType.Touch then
+                fabDragging = true
+                fabDragMoved = false
+                fabStartInputPos = input.Position
+                fabStartObjPos = fab.Position
+            end
+        end))
+
+        self.Janitor:Add(fab.InputChanged:Connect(function(input)
+            if fabDragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+               or input.UserInputType == Enum.UserInputType.Touch) then
+                if fabStartInputPos and (input.Position - fabStartInputPos).Magnitude > DRAG_THRESHOLD then
+                    fabDragMoved = true
+                end
+                if fabDragMoved and fabStartObjPos then
+                    local delta = input.Position - fabStartInputPos
+                    fabStoredPos = UDim2.new(
+                        fabStartObjPos.X.Scale, fabStartObjPos.X.Offset + delta.X,
+                        fabStartObjPos.Y.Scale, fabStartObjPos.Y.Offset + delta.Y
+                    )
+                    fab.Position = fabStoredPos
+                end
+            end
+        end))
+
+        self.Janitor:Add(fab.InputEnded:Connect(function(input)
+            if fabDragging then
+                local wasDrag = fabDragMoved
+                fabDragging = false
+                fabStartInputPos = nil
+                fabStartObjPos = nil
+                if not wasDrag then
+                    windowObj.Hidden = false
+                    fab.Visible = false
+                    canvasGroup.Visible = true
+                    shadowFrame.Visible = true
+                    Animator:Tween(canvasGroup, {GroupTransparency = windowObj.UserOpacity}, 0.3)
+                    Animator:Tween(stroke, {Transparency = 0.5}, 0.3)
+                    local shadow = shadowFrame:FindFirstChild("Shadow")
+                    if shadow then
+                        Animator:Tween(shadow, {ImageTransparency = 0.4 + 0.6 * windowObj.UserOpacity}, 0.3)
+                    end
+                end
+            end
+        end))
+    end
     
     self.Janitor:Add(UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
@@ -1148,7 +1140,8 @@ if UserInputService.TouchEnabled then
                 Animator:Tween(canvasGroup, {GroupTransparency = 1}, 0.3)
                 Animator:Tween(stroke, {Transparency = 1}, 0.3)
                 Animator:Tween(shadowFrame:FindFirstChild("Shadow"), {ImageTransparency = 1}, 0.3)
-                if UserInputService.TouchEnabled then
+                if isMobile and fab then
+                    fab.Position = fabStoredPos
                     fab.Visible = true
                 end
                 dragBar.Visible = false
@@ -1175,12 +1168,12 @@ if UserInputService.TouchEnabled then
     function windowObj:CreateTab(name, layoutOrder, customBuild)
         local tabBtn = Utility:Create("TextButton", {
             Parent = tabList,
-            Size = isMobile and UDim2.new(1, 0, 1, 0) or UDim2.new(1, -20, 0, 32),
+            Size = UDim2.new(1, -20, 0, 32),
             BackgroundTransparency = 1,
             Text = name,
             Font = Enum.Font.GothamSemibold,
-            TextSize = isMobile and 12 or 13,
-            TextXAlignment = isMobile and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
             LayoutOrder = layoutOrder or windowObj._nextUserOrder,
             AutoButtonColor = false
@@ -1188,17 +1181,15 @@ if UserInputService.TouchEnabled then
         if not layoutOrder then
             windowObj._nextUserOrder = windowObj._nextUserOrder + 1
         end
-        if not isMobile then
-            Utility:Create("UIPadding", {Parent = tabBtn, PaddingLeft = UDim.new(0, 15)})
-        end
+        Utility:Create("UIPadding", {Parent = tabBtn, PaddingLeft = UDim.new(0, 15)})
         Utility:Create("UICorner", {Parent = tabBtn, CornerRadius = UDim.new(0, 6)})
         ThemeManager:Register(tabBtn, "TextColor3", "SubText")
 
         local activeIndicator = Utility:Create("Frame", {
             Parent = tabBtn,
-            Size = isMobile and UDim2.new(0, 0, 0, 3) or UDim2.new(0, 3, 0, 0),
-            Position = isMobile and UDim2.new(0.5, 0, 0, 0) or UDim2.new(0, -10, 0.5, 0),
-            AnchorPoint = isMobile and Vector2.new(0.5, 0) or Vector2.new(0, 0.5),
+            Size = UDim2.new(0, 3, 0, 0),
+            Position = UDim2.new(0, -10, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
             BackgroundTransparency = 0
         })
         ThemeManager:Register(activeIndicator, "BackgroundColor3", "Accent")
@@ -1315,11 +1306,11 @@ if UserInputService.TouchEnabled then
                     if compDef.Type == "Button" then
                         local btn = Utility:Create("TextButton", {
                             Parent = secFrame,
-                            Size = UDim2.new(1, 0, 0, isMobile and 48 or 32),
+                            Size = UDim2.new(1, 0, 0, 48),
                             AutoButtonColor = false,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamSemibold,
-                            TextSize = isMobile and 14 or 13
+                            TextSize = 14
                         })
                         ThemeManager:Register(btn, "BackgroundColor3", "Container")
                         ThemeManager:Register(btn, "TextColor3", "Text")
@@ -1348,7 +1339,7 @@ if UserInputService.TouchEnabled then
                      elseif compDef.Type == "Toggle" then
                          local tglFrame = Utility:Create("Frame", {
                              Parent = secFrame,
-                             Size = UDim2.new(1, 0, 0, isMobile and 48 or 32),
+                             Size = UDim2.new(1, 0, 0, 48),
                              BackgroundTransparency = 1
                          })
                          local lbl = Utility:Create("TextLabel", {
@@ -1357,13 +1348,13 @@ if UserInputService.TouchEnabled then
                              BackgroundTransparency = 1,
                              Text = compDef.Name,
                              Font = Enum.Font.GothamMedium,
-                             TextSize = isMobile and 14 or 13,
+                             TextSize = 14,
                              TextXAlignment = Enum.TextXAlignment.Left
                          })
                          ThemeManager:Register(lbl, "TextColor3", "SubText")
 
-                         local boxHeight = isMobile and 32 or 22
-                         local boxWidth = isMobile and 54 or 42
+                         local boxHeight = 32
+                         local boxWidth = 54
                          local box = Utility:Create("TextButton", {
                              Parent = tglFrame,
                              Size = UDim2.new(0, boxWidth, 0, boxHeight),
@@ -1376,8 +1367,8 @@ if UserInputService.TouchEnabled then
                          local boxStroke = Utility:Create("UIStroke", {Parent = box, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
                          ThemeManager:Register(boxStroke, "Color", "Border")
 
-                         local indSize = isMobile and 26 or 18
-                         local indOff = isMobile and 3 or 2
+                         local indSize = 26
+                         local indOff = 3
                          local indicator = Utility:Create("Frame", {
                              Parent = box,
                              Size = UDim2.new(0, indSize, 0, indSize),
@@ -1460,7 +1451,7 @@ if UserInputService.TouchEnabled then
                     elseif compDef.Type == "Slider" then
                         local sldFrame = Utility:Create("Frame", {
                             Parent = secFrame,
-                            Size = UDim2.new(1, 0, 0, isMobile and 64 or 48),
+                            Size = UDim2.new(1, 0, 0, 64),
                             BackgroundTransparency = 1
                         })
                         local lbl = Utility:Create("TextLabel", {
@@ -1469,11 +1460,11 @@ if UserInputService.TouchEnabled then
                             BackgroundTransparency = 1,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamMedium,
-                            TextSize = isMobile and 14 or 13,
+                            TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Left
                         })
                         ThemeManager:Register(lbl, "TextColor3", "Text")
-                        
+
                         local valLbl = Utility:Create("TextLabel", {
                             Parent = sldFrame,
                             Size = UDim2.new(0, 50, 0, 20),
@@ -1481,13 +1472,13 @@ if UserInputService.TouchEnabled then
                             BackgroundTransparency = 1,
                             Text = tostring(compDef.Default),
                             Font = Enum.Font.GothamMedium,
-                            TextSize = isMobile and 14 or 13,
+                            TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Right
                         })
                         ThemeManager:Register(valLbl, "TextColor3", "SubText")
-                        
-                        local bgHeight = isMobile and 12 or 8
-                        local bgOffset = isMobile and -20 or -12
+
+                        local bgHeight = 12
+                        local bgOffset = -20
                         local bg = Utility:Create("TextButton", {
                             Parent = sldFrame,
                             Size = UDim2.new(1, 0, 0, bgHeight),
@@ -1506,7 +1497,7 @@ if UserInputService.TouchEnabled then
                         ThemeManager:Register(fill, "BackgroundColor3", "Accent")
                         Utility:Create("UICorner", {Parent = fill, CornerRadius = UDim.new(1, 0)})
 
-                        local knobSize = isMobile and 24 or 16
+                        local knobSize = 24
                         local knob = Utility:Create("Frame", {
                             Parent = fill,
                             Size = UDim2.new(0, knobSize, 0, knobSize),
@@ -1620,8 +1611,8 @@ if UserInputService.TouchEnabled then
                         if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
                         
                     elseif compDef.Type == "Dropdown" then
-                        local dpHeight = isMobile and 72 or 52
-                        local dpExpanded = isMobile and 172 or 160
+                        local dpHeight = 72
+                        local dpExpanded = 172
                         local dpFrame = Utility:Create("Frame", {
                             Parent = secFrame,
                             Size = UDim2.new(1, 0, 0, dpHeight),
@@ -1637,19 +1628,19 @@ if UserInputService.TouchEnabled then
                             BackgroundTransparency = 1,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamMedium,
-                            TextSize = isMobile and 14 or 13,
+                            TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Left
                         })
                         ThemeManager:Register(lbl, "TextColor3", "Text")
-                        
-                        local boxHeight = isMobile and 48 or 28
+
+                        local boxHeight = 48
                         local box = Utility:Create("TextButton", {
                             Parent = dpFrame,
                             Size = UDim2.new(1, 0, 0, boxHeight),
                             Position = UDim2.new(0, 0, 0, 24),
                             Text = " " .. tostring(compDef.Default or "Select..."),
                             Font = Enum.Font.GothamMedium,
-                            TextSize = isMobile and 14 or 12,
+                            TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Left,
                             AutoButtonColor = false
                         })
@@ -1670,8 +1661,8 @@ if UserInputService.TouchEnabled then
                         })
                         ThemeManager:Register(icon, "TextColor3", "SubText")
                         
-                        local listPos = isMobile and 76 or 56
-                        local optHeight = isMobile and 36 or 26
+                        local listPos = 76
+                        local optHeight = 36
                         local listFrame = Utility:Create("ScrollingFrame", {
                             Parent = dpFrame,
                             Size = UDim2.new(1, 0, 0, 100),
@@ -1710,7 +1701,7 @@ if UserInputService.TouchEnabled then
                                 BackgroundTransparency = 1,
                                 Text = "  " .. item,
                                 Font = Enum.Font.GothamMedium,
-                                TextSize = isMobile and 14 or 12,
+                                TextSize = 14,
                                 TextXAlignment = Enum.TextXAlignment.Left,
                                 TextTruncate = Enum.TextTruncate.AtEnd,
                                 AutoButtonColor = false
@@ -1851,7 +1842,7 @@ if UserInputService.TouchEnabled then
     end)
                 ThemeManager:Register(oldTab.Button, "TextColor3", "SubText")
                 Animator:Tween(oldTab.Button, {BackgroundTransparency = 1}, 0.2)
-                local oldIndicatorTarget = isMobile and UDim2.new(0, 0, 0, 3) or UDim2.new(0, 3, 0, 0)
+                local oldIndicatorTarget = UDim2.new(0, 3, 0, 0)
                 Animator:Tween(oldTab.Indicator, {Size = oldIndicatorTarget}, 0.2)
             end
 
@@ -1885,7 +1876,7 @@ if UserInputService.TouchEnabled then
             ThemeManager:Register(tabBtn, "TextColor3", "Text")
             ThemeManager:Register(tabBtn, "BackgroundColor3", "Hover")
             Animator:Tween(tabBtn, {BackgroundTransparency = 0}, 0.2)
-            local activeIndicatorTarget = isMobile and UDim2.new(1, 0, 0, 3) or UDim2.new(0, 3, 0, 18)
+            local activeIndicatorTarget = UDim2.new(0, 3, 0, 18)
             Animator:Tween(activeIndicator, {Size = activeIndicatorTarget}, 0.2, Enum.EasingStyle.Back)
 
             task.delay(0.2, function()
