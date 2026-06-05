@@ -709,7 +709,9 @@ end
 
 function Library:CreateWindow(options)
     local title = options.Title or "Premium UI"
-    local size = options.Size or UDim2.new(0, 600, 0, 400)
+    local size = options.Size or (isPhone and UDim2.new(0, 400, 0, 300))
+                                  or (isTablet and UDim2.new(0, 550, 0, 350)
+                                  or UDim2.new(0, 600, 0, 400))
 
     -- Forward declaration: fab is assigned later (around line 1116), but
     -- the close button handler references it. Declaring it here makes it
@@ -874,10 +876,12 @@ function Library:CreateWindow(options)
 
     InputManager:MakeDraggable(dragBar, canvasGroup, self.Janitor)
     
-    local topbar = Utility:Create("Frame", {
+    local topbar = Utility:Create("TextButton", {
         Parent = canvasGroup,
         Size = UDim2.new(1, 0, 0, 40),
-        BackgroundTransparency = 1
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false
     })
     InputManager:MakeDraggable(topbar, canvasGroup, self.Janitor)
     
@@ -979,7 +983,10 @@ function Library:CreateWindow(options)
             Animator:Tween(canvasGroup, {Size = UDim2.new(0, canvasGroup.Size.X.Offset, 0, 40)}, 0.4, Enum.EasingStyle.Quint)
             dragBar.Visible = false
         else
-            Animator:Tween(canvasGroup, {Size = windowObj.Maximized and UDim2.new(0, 800, 0, 600) or size}, 0.4, Enum.EasingStyle.Quint)
+            local restoreMax = isPhone and UDim2.new(0, 500, 0, 400)
+                                   or (isTablet and UDim2.new(0, 600, 0, 400)
+                                   or UDim2.new(0, 800, 0, 600))
+            Animator:Tween(canvasGroup, {Size = windowObj.Maximized and restoreMax or size}, 0.4, Enum.EasingStyle.Quint)
             dragBar.Visible = true
         end
     end))
@@ -988,7 +995,10 @@ function Library:CreateWindow(options)
         if windowObj.Minimized then return end
         windowObj.Maximized = not windowObj.Maximized
         if windowObj.Maximized then
-            Animator:Tween(canvasGroup, {Size = UDim2.new(0, 800, 0, 600), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.4, Enum.EasingStyle.Quint)
+            local maxSize = isPhone and UDim2.new(0, 500, 0, 400)
+                                or (isTablet and UDim2.new(0, 600, 0, 400)
+                                or UDim2.new(0, 800, 0, 600))
+            Animator:Tween(canvasGroup, {Size = maxSize, Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.4, Enum.EasingStyle.Quint)
         else
             Animator:Tween(canvasGroup, {Size = size}, 0.4, Enum.EasingStyle.Quint)
         end
