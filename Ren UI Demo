@@ -1561,11 +1561,13 @@ function Library:CreateWindow(options)
                         local sldFrame = Utility:Create("Frame", {
                             Parent = secFrame,
                             Size = UDim2.new(1, 0, 0, 48),
-                            BackgroundTransparency = 1
+                            BackgroundTransparency = 1,
+                            ClipsDescendants = false
                         })
                         local lbl = Utility:Create("TextLabel", {
                             Parent = sldFrame,
                             Size = UDim2.new(1, -50, 0, 20),
+                            Position = UDim2.new(0, 0, 0, 0),
                             BackgroundTransparency = 1,
                             Text = compDef.Name,
                             Font = Enum.Font.GothamMedium,
@@ -1586,49 +1588,65 @@ function Library:CreateWindow(options)
                         })
                         ThemeManager:Register(valLbl, "TextColor3", "SubText")
 
-                        local bgHeight = 8
-                        local bgOffset = -12
-                        local bg = Utility:Create("TextButton", {
+                        local trackHeight = 6
+                        local knobSize = 16
+                        local hitboxHeight = 32
+                        local trackY = 21
+
+                        local track = Utility:Create("Frame", {
                             Parent = sldFrame,
-                            Size = UDim2.new(1, 0, 0, bgHeight),
-                            Position = UDim2.new(0, 0, 1, bgOffset),
-                            Text = "",
-                            AutoButtonColor = false
+                            Size = UDim2.new(1, 0, 0, trackHeight),
+                            Position = UDim2.new(0, 0, 0, trackY),
+                            BackgroundColor3 = ThemeManager.Themes.Default.Container,
+                            ZIndex = 1
                         })
-                        ThemeManager:Register(bg, "BackgroundColor3", "Container")
-                        Utility:Create("UICorner", {Parent = bg, CornerRadius = UDim.new(1, 0)})
-                        ThemeManager:Register(Utility:Create("UIStroke", {Parent = bg, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5}), "Color", "Border")
-                        
+                        ThemeManager:Register(track, "BackgroundColor3", "Container")
+                        Utility:Create("UICorner", {Parent = track, CornerRadius = UDim.new(1, 0)})
+                        ThemeManager:Register(Utility:Create("UIStroke", {Parent = track, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5}), "Color", "Border")
+
                         local fill = Utility:Create("Frame", {
-                            Parent = bg,
-                            Size = UDim2.new(0, 0, 1, 0)
+                            Parent = track,
+                            Size = UDim2.new(0, 0, 1, 0),
+                            BackgroundColor3 = ThemeManager.Themes.Default.Accent,
+                            ZIndex = 2
                         })
                         ThemeManager:Register(fill, "BackgroundColor3", "Accent")
                         Utility:Create("UICorner", {Parent = fill, CornerRadius = UDim.new(1, 0)})
+                        Utility:Create("UIGradient", {
+                            Parent = fill,
+                            Transparency = NumberSequence.new({
+                                NumberSequenceKeypoint.new(0, 0),
+                                NumberSequenceKeypoint.new(1, 0.25)
+                            }),
+                            Rotation = 90
+                        })
 
-                        local knobSize = 16
                         local knob = Utility:Create("Frame", {
                             Parent = fill,
                             Size = UDim2.new(0, knobSize, 0, knobSize),
-                            Position = UDim2.new(1, -knobSize/2, 0.5, -knobSize/2)
+                            Position = UDim2.new(1, -knobSize/2, 0.5, -knobSize/2),
+                            BackgroundColor3 = ThemeManager.Themes.Default.Text,
+                            ZIndex = 3
                         })
                         ThemeManager:Register(knob, "BackgroundColor3", "Text")
                         Utility:Create("UICorner", {Parent = knob, CornerRadius = UDim.new(1, 0)})
-                        local knobStroke = Utility:Create("UIStroke", {Parent = knob, Thickness = 1, Color = ThemeManager.Themes.Default.Accent, Transparency = 0.3})
+                        local knobStroke = Utility:Create("UIStroke", {Parent = knob, Thickness = 2, Color = ThemeManager.Themes.Default.Accent, Transparency = 0})
                         ThemeManager:Register(knobStroke, "Color", "Accent")
-                        Utility:AddShadow(knob, 0.5, 4)
+                        Utility:AddShadow(knob, 0.5, 6)
 
                         local tooltip = Utility:Create("Frame", {
                             Parent = knob,
-                            Size = UDim2.new(0, 36, 0, 20),
+                            Size = UDim2.new(0, 40, 0, 22),
                             Position = UDim2.new(0.5, 0, 0, -28),
                             AnchorPoint = Vector2.new(0.5, 0),
-                            BackgroundTransparency = 0,
-                            Visible = false
+                            BackgroundColor3 = ThemeManager.Themes.Default.Container,
+                            ZIndex = 10,
+                            Visible = false,
+                            ClipsDescendants = false
                         })
                         ThemeManager:Register(tooltip, "BackgroundColor3", "Container")
-                        Utility:Create("UICorner", {Parent = tooltip, CornerRadius = UDim.new(0, 4)})
-                        ThemeManager:Register(Utility:Create("UIStroke", {Parent = tooltip, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5}), "Color", "Border")
+                        Utility:Create("UICorner", {Parent = tooltip, CornerRadius = UDim.new(0, 6)})
+                        ThemeManager:Register(Utility:Create("UIStroke", {Parent = tooltip, Thickness = 1, Color = ThemeManager.Themes.Default.Accent, Transparency = 0.3}), "Color", "Accent")
                         local tooltipText = Utility:Create("TextLabel", {
                             Parent = tooltip,
                             Size = UDim2.new(1, 0, 1, 0),
@@ -1636,77 +1654,122 @@ function Library:CreateWindow(options)
                             Text = "",
                             Font = Enum.Font.GothamBold,
                             TextSize = 11,
-                            TextXAlignment = Enum.TextXAlignment.Center
+                            TextXAlignment = Enum.TextXAlignment.Center,
+                            TextColor3 = ThemeManager.Themes.Default.Accent,
+                            ZIndex = 11
                         })
-                        ThemeManager:Register(tooltipText, "TextColor3", "Text")
+                        ThemeManager:Register(tooltipText, "TextColor3", "Accent")
+
+                        local hitbox = Utility:Create("TextButton", {
+                            Parent = sldFrame,
+                            Size = UDim2.new(1, 0, 0, hitboxHeight),
+                            Position = UDim2.new(0, 0, 0, 16),
+                            BackgroundTransparency = 1,
+                            Text = "",
+                            AutoButtonColor = false,
+                            ZIndex = 5
+                        })
 
                         local dragging = false
+                        local hover = false
+                        local dragInput = nil
                         local value = compDef.Default or compDef.Min
                         tooltipText.Text = tostring(value)
 
+                        local function setKnobSize(size)
+                            Animator:Tween(knob, {Size = UDim2.new(0, size, 0, size), Position = UDim2.new(1, -size/2, 0.5, -size/2)}, 0.2, Enum.EasingStyle.Back)
+                        end
+
+                        local function setFill(percent)
+                            fill.Size = UDim2.new(percent, 0, 1, 0)
+                        end
+
                         local function update(input)
-                            local w = bg.AbsoluteSize.X
+                            local w = track.AbsoluteSize.X
                             if w == 0 then return end
-                            local percent = math.clamp((input.Position.X - bg.AbsolutePosition.X) / w, 0, 1)
+                            local percent = math.clamp((input.Position.X - track.AbsolutePosition.X) / w, 0, 1)
                             value = math.floor(compDef.Min + (compDef.Max - compDef.Min) * percent)
                             valLbl.Text = tostring(value)
                             tooltipText.Text = tostring(value)
-                            fill.Size = UDim2.new(percent, 0, 1, 0)
+                            setFill(percent)
                             Library:SafeCallback(compDef.Callback, value)
                             if compDef.Flag and ConfigManager.Flags[compDef.Flag] then
                                 ConfigManager.Flags[compDef.Flag].Value = value
                             end
                         end
 
-                        Library.Janitor:Add(bg.MouseEnter:Connect(function()
+                        local function startDrag(input)
+                            dragging = true
+                            dragInput = input
+                            tooltip.Visible = true
+                            tooltipText.TextTransparency = 1
+                            tooltip.Size = UDim2.new(0, 40, 0, 0)
+                            Animator:Tween(tooltip, {Size = UDim2.new(0, 40, 0, 22)}, 0.15, Enum.EasingStyle.Back)
+                            Animator:Tween(tooltipText, {TextTransparency = 0}, 0.15, Enum.EasingStyle.Back)
+                            setKnobSize(knobSize + 4)
+                            Animator:Tween(knobStroke, {Thickness = 2.5, Transparency = 0}, 0.2)
+                            update(input)
+                        end
+
+                        local function endDrag()
+                            dragging = false
+                            dragInput = nil
+                            Animator:Tween(tooltipText, {TextTransparency = 1}, 0.1)
+                            Animator:Tween(tooltip, {Size = UDim2.new(0, 40, 0, 0)}, 0.15, Enum.EasingStyle.Quad)
+                            task.delay(0.15, function()
+                                if not dragging then
+                                    tooltip.Visible = false
+                                    tooltipText.TextTransparency = 1
+                                end
+                            end)
+                            if hover then
+                                setKnobSize(knobSize + 2)
+                                Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.15}, 0.2)
+                            else
+                                setKnobSize(knobSize)
+                                Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.3}, 0.2)
+                            end
+                        end
+
+                        Library.Janitor:Add(hitbox.MouseEnter:Connect(function()
+                            hover = true
                             if not dragging then
-                                Animator:Tween(knob, {Size = UDim2.new(0, knobSize + 2, 0, knobSize + 2), Position = UDim2.new(1, -(knobSize + 2)/2, 0.5, -(knobSize + 2)/2)}, 0.2, Enum.EasingStyle.Back)
-                                Animator:Tween(knobStroke, {Transparency = 0}, 0.2)
+                                setKnobSize(knobSize + 2)
+                                Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.15}, 0.2)
                             end
                         end))
-                        Library.Janitor:Add(bg.MouseLeave:Connect(function()
+                        Library.Janitor:Add(hitbox.MouseLeave:Connect(function()
+                            hover = false
                             if not dragging then
-                                Animator:Tween(knob, {Size = UDim2.new(0, knobSize, 0, knobSize), Position = UDim2.new(1, -knobSize/2, 0.5, -knobSize/2)}, 0.2, Enum.EasingStyle.Back)
-                                Animator:Tween(knobStroke, {Transparency = 0.3}, 0.2)
+                                setKnobSize(knobSize)
+                                Animator:Tween(knobStroke, {Thickness = 2, Transparency = 0.3}, 0.2)
                             end
                         end))
-                        Library.Janitor:Add(bg.InputBegan:Connect(function(input)
-                            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                                dragging = true
-                                tooltip.Visible = true
-                                tooltipText.TextTransparency = 1
-                                tooltip.Size = UDim2.new(0, 36, 0, 0)
-                                Animator:Tween(tooltip, {Size = UDim2.new(0, 36, 0, 20)}, 0.15, Enum.EasingStyle.Back)
-                                Animator:Tween(tooltipText, {TextTransparency = 0}, 0.15, Enum.EasingStyle.Back)
-                                Animator:Tween(knob, {Size = UDim2.new(0, knobSize + 4, 0, knobSize + 4), Position = UDim2.new(1, -(knobSize + 4)/2, 0.5, -(knobSize + 4)/2)}, 0.2, Enum.EasingStyle.Back)
-                                Animator:Tween(knobStroke, {Transparency = 0}, 0.2)
+                        Library.Janitor:Add(hitbox.InputBegan:Connect(function(input)
+                            if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not dragInput then
+                                startDrag(input)
+                            end
+                        end))
+                        Library.Janitor:Add(UserInputService.InputChanged:Connect(function(input)
+                            if not dragging then return end
+                            -- Touch uses a single persistent input object (filter required for cross-slider safety).
+                            -- Mouse uses separate objects (MouseButton1 click vs MouseMovement), so filter only by type.
+                            if input.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then return end
+                            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                                 update(input)
                             end
                         end))
                         Library.Janitor:Add(UserInputService.InputEnded:Connect(function(input)
+                            if not dragging then return end
+                            if input.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then return end
                             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                                dragging = false
-                                Animator:Tween(tooltipText, {TextTransparency = 1}, 0.1)
-                                Animator:Tween(tooltip, {Size = UDim2.new(0, 36, 0, 0)}, 0.15, Enum.EasingStyle.Quad)
-                                task.delay(0.15, function()
-                                    if not dragging then
-                                        tooltip.Visible = false
-                                        tooltipText.TextTransparency = 1
-                                    end
-                                end)
-                                Animator:Tween(knob, {Size = UDim2.new(0, knobSize, 0, knobSize), Position = UDim2.new(1, -knobSize/2, 0.5, -knobSize/2)}, 0.2, Enum.EasingStyle.Back)
-                                Animator:Tween(knobStroke, {Transparency = 0.3}, 0.2)
+                                endDrag()
                             end
                         end))
-                        Library.Janitor:Add(UserInputService.InputChanged:Connect(function(input)
-                            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                                update(input)
-                            end
-                        end))
-                        
+
                         local percent = math.clamp((value - compDef.Min) / (compDef.Max - compDef.Min), 0, 1)
-                        fill.Size = UDim2.new(percent, 0, 1, 0)
-                        
+                        setFill(percent)
+
                         local flagObj = {
                             Value = value,
                             Set = function(self, val)
