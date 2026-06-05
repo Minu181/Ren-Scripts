@@ -883,21 +883,21 @@ function Library:CreateWindow(options)
     
     local trafficContainer = Utility:Create("Frame", {
         Parent = topbar,
-        Size = UDim2.new(0, 104, 1, 0),
+        Size = UDim2.new(0, 40, 1, 0),
         Position = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1
     })
 
     local HITBOX = 32
     local VISUAL = 12
-    local GAP = 4
+    local VISUAL_GAP = 2
     local HALF = HITBOX / 2
 
-    local function makeTrafficLight(parent, color, xOffset)
+    local function makeTrafficLight(parent, color, visualX)
         local hitbox = Utility:Create("TextButton", {
             Parent = parent,
             Size = UDim2.new(0, HITBOX, 0, HITBOX),
-            Position = UDim2.new(0, xOffset, 0.5, -HALF),
+            Position = UDim2.new(0, visualX - HALF + VISUAL/2, 0.5, -HALF),
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false
@@ -913,13 +913,13 @@ function Library:CreateWindow(options)
     end
 
     local closeBtn, closeVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(255, 95, 86), 0)
-    local minBtn, minVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(255, 189, 46), HITBOX + GAP)
-    local maxBtn, maxVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(39, 201, 63), 2 * (HITBOX + GAP))
+    local minBtn, minVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(255, 189, 46), VISUAL + VISUAL_GAP)
+    local maxBtn, maxVisual = makeTrafficLight(trafficContainer, Color3.fromRGB(39, 201, 63), 2 * (VISUAL + VISUAL_GAP))
 
     local titleLbl = Utility:Create("TextLabel", {
         Parent = topbar,
-        Size = UDim2.new(1, -130, 1, 0),
-        Position = UDim2.new(0, 120, 0, 0),
+        Size = UDim2.new(1, -70, 1, 0),
+        Position = UDim2.new(0, 60, 0, 0),
         BackgroundTransparency = 1,
         Text = title,
         Font = Enum.Font.GothamBold,
