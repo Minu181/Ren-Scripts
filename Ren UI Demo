@@ -15,6 +15,9 @@ local TeleportService = game:GetService("TeleportService")
 local Stats = game:GetService("Stats")
 local GuiService = game:GetService("GuiService")
 local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
+
+local activeKeybindStop = nil
 
 -- Multi-execution protection: cleanup previous instance if it exists
 if _G.__PremiumUI_Cleanup then
@@ -107,6 +110,49 @@ function Utility:AddShadow(parent, transparency, radius)
     return shadow
 end
 
+function Utility.RgbToHsv(color)
+    local r, g, b = color.R, color.G, color.B
+    local maxC = math.max(r, g, b)
+    local minC = math.min(r, g, b)
+    local delta = maxC - minC
+    local v = maxC
+    local s = (maxC == 0) and 0 or (delta / maxC)
+    local h = 0
+    if delta > 0 then
+        if maxC == r then
+            h = ((g - b) / delta) % 6
+        elseif maxC == g then
+            h = (b - r) / delta + 2
+        else
+            h = (r - g) / delta + 4
+        end
+        h = h / 6
+        if h < 0 then h = h + 1 end
+    end
+    return h, s, v
+end
+
+function Utility.RgbToHex(color)
+    return string.format("#%02X%02X%02X",
+        math.floor(math.clamp(color.R, 0, 1) * 255 + 0.5),
+        math.floor(math.clamp(color.G, 0, 1) * 255 + 0.5),
+        math.floor(math.clamp(color.B, 0, 1) * 255 + 0.5))
+end
+
+function Utility.HexToRgb(hex)
+    if type(hex) ~= "string" then return nil end
+    hex = hex:gsub("#", ""):gsub("%s", ""):upper()
+    if #hex == 3 then
+        hex = hex:sub(1,1):rep(2) .. hex:sub(2,2):rep(2) .. hex:sub(3,3):rep(2)
+    end
+    if #hex ~= 6 then return nil end
+    local r = tonumber(hex:sub(1,2), 16)
+    local g = tonumber(hex:sub(3,4), 16)
+    local b = tonumber(hex:sub(5,6), 16)
+    if not r or not g or not b then return nil end
+    return Color3.fromRGB(r, g, b)
+end
+
 local Animator = {}
 function Animator:Tween(instance, properties, duration, style, direction)
     duration = duration or 0.2
@@ -141,7 +187,7 @@ local ThemeManager = {
             Container = Color3.fromRGB(24, 24, 32),
             Section = Color3.fromRGB(20, 20, 28),
             Border = Color3.fromRGB(40, 40, 50),
-            Accent = Color3.fromRGB(255, 255, 255),
+            Accent = Color3.fromRGB(220, 220, 230),
             Text = Color3.fromRGB(255, 255, 255),
             SubText = Color3.fromRGB(170, 170, 185),
             Hover = Color3.fromRGB(32, 32, 42),
@@ -154,7 +200,7 @@ local ThemeManager = {
             Container = Color3.fromRGB(220, 220, 228),
             Section = Color3.fromRGB(225, 225, 232),
             Border = Color3.fromRGB(200, 200, 210),
-            Accent = Color3.fromRGB(20, 20, 30),
+            Accent = Color3.fromRGB(40, 60, 100),
             Text = Color3.fromRGB(20, 20, 30),
             SubText = Color3.fromRGB(100, 100, 115),
             Hover = Color3.fromRGB(210, 210, 218),
@@ -167,9 +213,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(18, 20, 32),
             Section = Color3.fromRGB(14, 16, 28),
             Border = Color3.fromRGB(35, 40, 60),
-            Accent = Color3.fromRGB(60, 140, 255),
+            Accent = Color3.fromRGB(70, 150, 255),
             Text = Color3.fromRGB(255, 255, 255),
-            SubText = Color3.fromRGB(160, 175, 200),
+            SubText = Color3.fromRGB(170, 185, 210),
             Hover = Color3.fromRGB(26, 28, 42),
             Click = Color3.fromRGB(12, 14, 24),
             Notification = Color3.fromRGB(20, 22, 35),
@@ -180,9 +226,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(20, 30, 22),
             Section = Color3.fromRGB(16, 24, 18),
             Border = Color3.fromRGB(38, 50, 40),
-            Accent = Color3.fromRGB(80, 200, 100),
+            Accent = Color3.fromRGB(90, 215, 110),
             Text = Color3.fromRGB(255, 255, 255),
-            SubText = Color3.fromRGB(165, 185, 170),
+            SubText = Color3.fromRGB(175, 195, 180),
             Hover = Color3.fromRGB(28, 40, 30),
             Click = Color3.fromRGB(14, 22, 16),
             Notification = Color3.fromRGB(22, 32, 24),
@@ -193,9 +239,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(32, 18, 18),
             Section = Color3.fromRGB(28, 14, 14),
             Border = Color3.fromRGB(55, 35, 35),
-            Accent = Color3.fromRGB(255, 70, 70),
+            Accent = Color3.fromRGB(255, 85, 85),
             Text = Color3.fromRGB(255, 255, 255),
-            SubText = Color3.fromRGB(195, 160, 160),
+            SubText = Color3.fromRGB(205, 170, 170),
             Hover = Color3.fromRGB(42, 26, 26),
             Click = Color3.fromRGB(24, 12, 12),
             Notification = Color3.fromRGB(35, 20, 20),
@@ -206,9 +252,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(14, 28, 38),
             Section = Color3.fromRGB(10, 22, 32),
             Border = Color3.fromRGB(28, 50, 65),
-            Accent = Color3.fromRGB(80, 200, 220),
+            Accent = Color3.fromRGB(90, 215, 235),
             Text = Color3.fromRGB(235, 250, 255),
-            SubText = Color3.fromRGB(155, 200, 215),
+            SubText = Color3.fromRGB(165, 210, 220),
             Hover = Color3.fromRGB(20, 38, 50),
             Click = Color3.fromRGB(8, 20, 30),
             Notification = Color3.fromRGB(16, 32, 44),
@@ -219,9 +265,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(36, 24, 18),
             Section = Color3.fromRGB(30, 20, 14),
             Border = Color3.fromRGB(62, 42, 30),
-            Accent = Color3.fromRGB(255, 150, 80),
+            Accent = Color3.fromRGB(255, 165, 90),
             Text = Color3.fromRGB(255, 245, 235),
-            SubText = Color3.fromRGB(215, 175, 150),
+            SubText = Color3.fromRGB(220, 185, 160),
             Hover = Color3.fromRGB(48, 32, 22),
             Click = Color3.fromRGB(26, 18, 12),
             Notification = Color3.fromRGB(40, 26, 18),
@@ -232,9 +278,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(28, 18, 36),
             Section = Color3.fromRGB(22, 14, 30),
             Border = Color3.fromRGB(50, 35, 62),
-            Accent = Color3.fromRGB(180, 100, 220),
+            Accent = Color3.fromRGB(190, 110, 235),
             Text = Color3.fromRGB(250, 240, 255),
-            SubText = Color3.fromRGB(200, 180, 215),
+            SubText = Color3.fromRGB(210, 190, 225),
             Hover = Color3.fromRGB(38, 26, 48),
             Click = Color3.fromRGB(20, 14, 26),
             Notification = Color3.fromRGB(32, 22, 40),
@@ -245,9 +291,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(22, 36, 30),
             Section = Color3.fromRGB(18, 28, 24),
             Border = Color3.fromRGB(40, 60, 50),
-            Accent = Color3.fromRGB(120, 230, 180),
+            Accent = Color3.fromRGB(130, 235, 185),
             Text = Color3.fromRGB(240, 255, 248),
-            SubText = Color3.fromRGB(180, 220, 200),
+            SubText = Color3.fromRGB(190, 225, 205),
             Hover = Color3.fromRGB(30, 46, 38),
             Click = Color3.fromRGB(16, 26, 22),
             Notification = Color3.fromRGB(24, 38, 32),
@@ -258,9 +304,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(34, 16, 22),
             Section = Color3.fromRGB(28, 12, 18),
             Border = Color3.fromRGB(58, 30, 38),
-            Accent = Color3.fromRGB(200, 50, 80),
+            Accent = Color3.fromRGB(220, 60, 90),
             Text = Color3.fromRGB(255, 240, 245),
-            SubText = Color3.fromRGB(210, 170, 180),
+            SubText = Color3.fromRGB(215, 180, 190),
             Hover = Color3.fromRGB(46, 22, 30),
             Click = Color3.fromRGB(24, 10, 16),
             Notification = Color3.fromRGB(38, 18, 24),
@@ -271,9 +317,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(30, 32, 38),
             Section = Color3.fromRGB(24, 26, 32),
             Border = Color3.fromRGB(50, 52, 60),
-            Accent = Color3.fromRGB(160, 170, 185),
+            Accent = Color3.fromRGB(170, 180, 200),
             Text = Color3.fromRGB(240, 242, 245),
-            SubText = Color3.fromRGB(180, 185, 195),
+            SubText = Color3.fromRGB(190, 195, 205),
             Hover = Color3.fromRGB(38, 40, 48),
             Click = Color3.fromRGB(22, 24, 28),
             Notification = Color3.fromRGB(32, 34, 40),
@@ -284,9 +330,9 @@ local ThemeManager = {
             Container = Color3.fromRGB(28, 14, 36),
             Section = Color3.fromRGB(22, 10, 30),
             Border = Color3.fromRGB(55, 30, 65),
-            Accent = Color3.fromRGB(255, 80, 200),
+            Accent = Color3.fromRGB(255, 90, 210),
             Text = Color3.fromRGB(255, 240, 250),
-            SubText = Color3.fromRGB(220, 180, 215),
+            SubText = Color3.fromRGB(225, 190, 220),
             Hover = Color3.fromRGB(42, 22, 52),
             Click = Color3.fromRGB(20, 10, 26),
             Notification = Color3.fromRGB(34, 18, 44),
@@ -297,7 +343,7 @@ local ThemeManager = {
             Container = Color3.fromRGB(238, 228, 242),
             Section = Color3.fromRGB(242, 232, 245),
             Border = Color3.fromRGB(220, 205, 225),
-            Accent = Color3.fromRGB(255, 130, 200),
+            Accent = Color3.fromRGB(210, 70, 130),
             Text = Color3.fromRGB(50, 35, 60),
             SubText = Color3.fromRGB(140, 110, 150),
             Hover = Color3.fromRGB(228, 218, 232),
@@ -310,12 +356,64 @@ local ThemeManager = {
             Container = Color3.fromRGB(38, 32, 18),
             Section = Color3.fromRGB(32, 26, 14),
             Border = Color3.fromRGB(62, 52, 30),
-            Accent = Color3.fromRGB(255, 200, 80),
+            Accent = Color3.fromRGB(255, 210, 90),
             Text = Color3.fromRGB(255, 250, 235),
-            SubText = Color3.fromRGB(215, 200, 160),
+            SubText = Color3.fromRGB(220, 205, 170),
             Hover = Color3.fromRGB(48, 42, 24),
             Click = Color3.fromRGB(28, 24, 14),
             Notification = Color3.fromRGB(40, 34, 20),
+            Shadow = Color3.fromRGB(0, 0, 0)
+        },
+        Noir = {
+            Background = Color3.fromRGB(5, 5, 8),
+            Container = Color3.fromRGB(12, 12, 16),
+            Section = Color3.fromRGB(8, 8, 12),
+            Border = Color3.fromRGB(28, 28, 34),
+            Accent = Color3.fromRGB(255, 255, 255),
+            Text = Color3.fromRGB(245, 245, 250),
+            SubText = Color3.fromRGB(155, 155, 165),
+            Hover = Color3.fromRGB(22, 22, 28),
+            Click = Color3.fromRGB(6, 6, 10),
+            Notification = Color3.fromRGB(15, 15, 20),
+            Shadow = Color3.fromRGB(0, 0, 0)
+        },
+        Cyber = {
+            Background = Color3.fromRGB(5, 10, 8),
+            Container = Color3.fromRGB(10, 20, 14),
+            Section = Color3.fromRGB(8, 15, 11),
+            Border = Color3.fromRGB(20, 45, 30),
+            Accent = Color3.fromRGB(0, 255, 140),
+            Text = Color3.fromRGB(220, 255, 230),
+            SubText = Color3.fromRGB(120, 200, 150),
+            Hover = Color3.fromRGB(15, 30, 22),
+            Click = Color3.fromRGB(6, 12, 9),
+            Notification = Color3.fromRGB(12, 24, 18),
+            Shadow = Color3.fromRGB(0, 0, 0)
+        },
+        Espresso = {
+            Background = Color3.fromRGB(18, 12, 8),
+            Container = Color3.fromRGB(28, 20, 14),
+            Section = Color3.fromRGB(22, 15, 10),
+            Border = Color3.fromRGB(50, 35, 22),
+            Accent = Color3.fromRGB(245, 180, 100),
+            Text = Color3.fromRGB(255, 240, 220),
+            SubText = Color3.fromRGB(200, 165, 130),
+            Hover = Color3.fromRGB(38, 28, 18),
+            Click = Color3.fromRGB(20, 14, 9),
+            Notification = Color3.fromRGB(30, 22, 14),
+            Shadow = Color3.fromRGB(0, 0, 0)
+        },
+        Vapor = {
+            Background = Color3.fromRGB(22, 18, 32),
+            Container = Color3.fromRGB(34, 26, 50),
+            Section = Color3.fromRGB(28, 22, 42),
+            Border = Color3.fromRGB(60, 45, 80),
+            Accent = Color3.fromRGB(100, 220, 255),
+            Text = Color3.fromRGB(240, 230, 255),
+            SubText = Color3.fromRGB(180, 170, 210),
+            Hover = Color3.fromRGB(44, 34, 64),
+            Click = Color3.fromRGB(24, 20, 36),
+            Notification = Color3.fromRGB(36, 28, 54),
             Shadow = Color3.fromRGB(0, 0, 0)
         }
     },
@@ -659,8 +757,14 @@ end
 -- 6. CONFIGURATION MANAGER
 -- ==========================================
 local ConfigManager = {
-    Flags = {}
+    Flags = {},
+    _nextAutoFlagId = 0
 }
+
+function ConfigManager:NextAutoFlag()
+    self._nextAutoFlagId = self._nextAutoFlagId + 1
+    return "__AutoFlag_" .. self._nextAutoFlagId
+end
 
 -- ==========================================
 -- 7. CORE LIBRARY
@@ -700,6 +804,14 @@ function Library:Unload()
     table.clear(Library.Windows)
 end
 
+function Library:ResetAll()
+    for _, flag in pairs(ConfigManager.Flags) do
+        if flag and flag.Default ~= nil and type(flag.Set) == "function" then
+            flag:Set(flag.Default)
+        end
+    end
+end
+
 -- Register cleanup function for next execution
 _G.__PremiumUI_Cleanup = function()
     if Library and Library.Unload then
@@ -720,6 +832,15 @@ function Library:CreateWindow(options)
     local size = options.Size or (_curIsPhone and UDim2.new(0, 400, 0, 300))
                                   or (_curIsTablet and UDim2.new(0, 550, 0, 350)
                                   or UDim2.new(0, 600, 0, 400))
+
+    local introCfg = options.Intro or {}
+    local introEnabled = introCfg.Enabled ~= false
+    local introTitle = introCfg.Title or "REN"
+    local introSubtitle = introCfg.Subtitle or "Library UI"
+    local introVersion = introCfg.Version or "v1.7.0"
+    local introAuthor = introCfg.Author or "Made by: Ren"
+    local introDiscord = introCfg.Discord or "Discord: wtf_renn"
+    local introDuration = introCfg.Duration or 3
 
     -- Forward declaration: fab is assigned later (around line 1116), but
     -- the close button handler references it. Declaring it here makes it
@@ -762,13 +883,222 @@ function Library:CreateWindow(options)
     })
     Utility:AddShadow(shadowFrame, 0.4, 25)
 
-    -- Intro Sequence (single tween for smooth scale-in)
-    Animator:Tween(canvasGroup, {GroupTransparency = 0.2, Size = size}, 0.6, Enum.EasingStyle.Quint)
-    task.delay(0.6, function()
-        if shadowFrame and shadowFrame.Parent then
+    -- uiContent: holds all UI elements (topbar, tabs, content). Hidden during
+    -- the intro, shown after. When the intro finishes, GroupTransparency is
+    -- set to 0.2 (80% opacity) on the canvasGroup.
+    local uiContent = Utility:Create("CanvasGroup", {
+        Parent = canvasGroup,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        Visible = introEnabled and false or true
+    })
+    self.Janitor:Add(uiContent)
+
+    -- ==========================================
+    -- INTRO SEQUENCE
+    -- ==========================================
+    local introCard = nil
+    local introProgress = nil
+    local introThread = nil
+
+    if introEnabled then
+        local introW = 220
+        local introH = 130
+
+        canvasGroup.Size = UDim2.new(0, introW, 0, 50)
+        canvasGroup.GroupTransparency = 1
+
+        introCard = Utility:Create("Frame", {
+            Parent = canvasGroup,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = ThemeManager.Themes.Default.Background,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            ClipsDescendants = true
+        })
+        ThemeManager:Register(introCard, "BackgroundColor3", "Background")
+
+        local titleRow = Utility:Create("Frame", {
+            Parent = introCard,
+            Size = UDim2.new(1, 0, 0, 28),
+            Position = UDim2.new(0, 0, 0, 16),
+            BackgroundTransparency = 1
+        })
+        Utility:Create("UIListLayout", {
+            Parent = titleRow,
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 0)
+        })
+        local titleLeft = Utility:Create("TextLabel", {
+            Parent = titleRow,
+            AutomaticSize = Enum.AutomaticSize.X,
+            Size = UDim2.new(0, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = introTitle,
+            Font = Enum.Font.GothamBold,
+            TextSize = 20,
+            TextStrokeTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = ThemeManager.Themes.Default.Text,
+            TextTransparency = 1
+        })
+        titleLeft.LayoutOrder = 1
+        ThemeManager:Register(titleLeft, "TextColor3", "Text")
+        local titleRight = Utility:Create("TextLabel", {
+            Parent = titleRow,
+            AutomaticSize = Enum.AutomaticSize.X,
+            Size = UDim2.new(0, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = " " .. introSubtitle,
+            Font = Enum.Font.GothamBold,
+            TextSize = 20,
+            TextStrokeTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = ThemeManager.Themes.Default.Accent,
+            TextTransparency = 1
+        })
+        titleRight.LayoutOrder = 2
+        ThemeManager:Register(titleRight, "TextColor3", "Accent")
+
+        local accentLine = Utility:Create("Frame", {
+            Parent = introCard,
+            Size = UDim2.new(0, 106, 0, 3),
+            Position = UDim2.new(0.5, -53, 0, 44),
+            BackgroundColor3 = ThemeManager.Themes.Default.Accent,
+            BackgroundTransparency = 0.3,
+            BorderSizePixel = 0
+        })
+        Utility:Create("UICorner", {Parent = accentLine, CornerRadius = UDim.new(1, 0)})
+        ThemeManager:Register(accentLine, "BackgroundColor3", "Accent")
+
+        local versionLbl = Utility:Create("TextLabel", {
+            Parent = introCard,
+            Size = UDim2.new(1, -32, 0, 16),
+            Position = UDim2.new(0, 16, 0, 56),
+            BackgroundTransparency = 1,
+            Text = introVersion,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            TextStrokeTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextColor3 = ThemeManager.Themes.Default.SubText,
+            TextTransparency = 1
+        })
+        ThemeManager:Register(versionLbl, "TextColor3", "SubText")
+
+        local authorLbl = Utility:Create("TextLabel", {
+            Parent = introCard,
+            Size = UDim2.new(1, -32, 0, 14),
+            Position = UDim2.new(0, 16, 0, 74),
+            BackgroundTransparency = 1,
+            Text = introAuthor,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            TextStrokeTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextColor3 = ThemeManager.Themes.Default.Text,
+            TextTransparency = 1
+        })
+        ThemeManager:Register(authorLbl, "TextColor3", "Text")
+
+        local discordLbl = Utility:Create("TextLabel", {
+            Parent = introCard,
+            Size = UDim2.new(1, -32, 0, 14),
+            Position = UDim2.new(0, 16, 0, 90),
+            BackgroundTransparency = 1,
+            Text = introDiscord,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            TextStrokeTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextColor3 = ThemeManager.Themes.Default.Accent,
+            TextTransparency = 1
+        })
+        ThemeManager:Register(discordLbl, "TextColor3", "Accent")
+
+        local progressBg = Utility:Create("Frame", {
+            Parent = introCard,
+            Size = UDim2.new(1, -40, 0, 3),
+            Position = UDim2.new(0, 20, 1, -12),
+            BackgroundColor3 = ThemeManager.Themes.Default.Border,
+            BackgroundTransparency = 0.5,
+            BorderSizePixel = 0
+        })
+        Utility:Create("UICorner", {Parent = progressBg, CornerRadius = UDim.new(1, 0)})
+        ThemeManager:Register(progressBg, "BackgroundColor3", "Border")
+
+        introProgress = Utility:Create("Frame", {
+            Parent = progressBg,
+            Size = UDim2.new(0, 0, 1, 0),
+            BackgroundColor3 = ThemeManager.Themes.Default.Accent,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0
+        })
+        Utility:Create("UICorner", {Parent = introProgress, CornerRadius = UDim.new(1, 0)})
+        ThemeManager:Register(introProgress, "BackgroundColor3", "Accent")
+
+        introThread = task.spawn(function()
+            Animator:Tween(canvasGroup, {GroupTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            Animator:Tween(canvasGroup, {Size = UDim2.new(0, introW, 0, introH)}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.2)
+
+            Animator:Tween(titleLeft, {TextTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            Animator:Tween(titleRight, {TextTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.15)
+            Animator:Tween(accentLine, {BackgroundTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.05)
+            Animator:Tween(versionLbl, {TextTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.15)
+            Animator:Tween(authorLbl, {TextTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.15)
+            Animator:Tween(discordLbl, {TextTransparency = 0}, 0.3, Enum.EasingStyle.Quint)
+            task.wait(0.1)
+
+            Animator:Tween(introProgress, {Size = UDim2.new(1, 0, 1, 0)}, introDuration - 0.9, Enum.EasingStyle.Linear)
+
+            task.wait(introDuration - 0.9)
+
+            Animator:Tween(titleLeft, {TextTransparency = 1}, 0.2)
+            Animator:Tween(titleRight, {TextTransparency = 1}, 0.2)
+            Animator:Tween(accentLine, {BackgroundTransparency = 1}, 0.2)
+            Animator:Tween(versionLbl, {TextTransparency = 1}, 0.2)
+            Animator:Tween(authorLbl, {TextTransparency = 1}, 0.2)
+            Animator:Tween(discordLbl, {TextTransparency = 1}, 0.2)
+            Animator:Tween(introProgress, {BackgroundTransparency = 1}, 0.2)
+            task.wait(0.2)
+
+            Animator:Tween(canvasGroup, {Size = size}, 0.4, Enum.EasingStyle.Quint)
             shadowFrame.Visible = true
-        end
-    end)
+            shadowFrame.Size = size
+            shadowFrame.Position = canvasGroup.Position
+
+            uiContent.Visible = true
+            uiContent.GroupTransparency = 1
+
+            Animator:Tween(introCard, {BackgroundTransparency = 1}, 0.35, Enum.EasingStyle.Quint)
+            Animator:Tween(uiContent, {GroupTransparency = 0.2}, 0.35, Enum.EasingStyle.Quint)
+            Animator:Tween(canvasGroup, {GroupTransparency = 0.2}, 0.35, Enum.EasingStyle.Quint)
+
+            task.wait(0.4)
+            if introCard and introCard.Parent then
+                introCard:Destroy()
+            end
+        end)
+        self.Janitor:Add(introThread, true)
+    else
+        canvasGroup.Size = size
+        canvasGroup.GroupTransparency = 0
+        shadowFrame.Visible = true
+        shadowFrame.Size = size
+        shadowFrame.Position = canvasGroup.Position
+    end
 
     -- Sync shadow position AND size to window
     self.Janitor:Add(canvasGroup:GetPropertyChangedSignal("Position"):Connect(function()
@@ -885,7 +1215,7 @@ function Library:CreateWindow(options)
     InputManager:MakeDraggable(dragBar, canvasGroup, self.Janitor)
     
     local topbar = Utility:Create("TextButton", {
-        Parent = canvasGroup,
+        Parent = uiContent,
         Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
         Text = "",
@@ -963,6 +1293,9 @@ function Library:CreateWindow(options)
         Hidden = false,
         Maximized = false,
         UserOpacity = 0.2,
+        DefaultSize = size,
+        DefaultPosition = UDim2.new(0.5, 0, 0.5, 0),
+        DefaultMaximized = false,
         _nextUserOrder = 2,
         _tabSwitching = false
     }
@@ -1018,7 +1351,7 @@ function Library:CreateWindow(options)
     local contentContainer
 
     tabContainer = Utility:Create("Frame", {
-        Parent = canvasGroup,
+        Parent = uiContent,
         Size = UDim2.new(0, 150, 1, -40),
         Position = UDim2.new(0, 0, 0, 40),
         BackgroundTransparency = 1
@@ -1048,7 +1381,7 @@ function Library:CreateWindow(options)
     end)
 
     contentContainer = Utility:Create("Frame", {
-        Parent = canvasGroup,
+        Parent = uiContent,
         Size = UDim2.new(1, -150, 1, -40),
         Position = UDim2.new(0, 150, 0, 40),
         BackgroundTransparency = 1,
@@ -1244,7 +1577,16 @@ function Library:CreateWindow(options)
     
     self.Janitor:Add(UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
-        if input.KeyCode == self.ToggleKeybind then
+        local toggleBind = (ConfigManager.Flags and ConfigManager.Flags["ToggleUI"] and ConfigManager.Flags["ToggleUI"].Value) or self.ToggleKeybind
+        local matches = false
+        if typeof(toggleBind) == "EnumItem" then
+            if toggleBind.EnumType == Enum.KeyCode then
+                matches = (input.KeyCode == toggleBind)
+            else
+                matches = (input.UserInputType == toggleBind)
+            end
+        end
+        if matches then
             windowObj.Hidden = not windowObj.Hidden
             if windowObj.Hidden then
                 Animator:Tween(canvasGroup, {GroupTransparency = 1}, 0.3)
@@ -1349,7 +1691,14 @@ function Library:CreateWindow(options)
             local sectionRefs = {}
             local function RefreshLayout()
                 for _, sec in ipairs(sectionRefs) do
-                    sec.Frame.Size = UDim2.new(1, -20, 0, sec.Layout.AbsoluteContentSize.Y + 28)
+                    if sec.SecDef.Collapsed then
+                        sec.ContentFrame.Size = UDim2.new(1, 0, 0, 0)
+                        sec.Frame.Size = UDim2.new(1, -20, 0, 52)
+                    else
+                        local contentH = sec.ContentLayout.AbsoluteContentSize.Y
+                        sec.ContentFrame.Size = UDim2.new(1, 0, 0, contentH)
+                        sec.Frame.Size = UDim2.new(1, -20, 0, contentH + 52)
+                    end
                 end
                 scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
             end
@@ -1391,9 +1740,20 @@ function Library:CreateWindow(options)
                     PaddingRight = UDim.new(0, 14)
                 })
                 
-                local secTitle = Utility:Create("TextLabel", {
+                local secTitle = Utility:Create("TextButton", {
                     Parent = secFrame,
                     Size = UDim2.new(1, 0, 0, 24),
+                    BackgroundTransparency = 1,
+                    AutoButtonColor = false,
+                    Text = "",
+                    Font = Enum.Font.GothamBold
+                })
+                ThemeManager:Register(secTitle, "TextColor3", "Text")
+
+                local titleLbl = Utility:Create("TextLabel", {
+                    Parent = secTitle,
+                    Size = UDim2.new(1, -30, 1, 0),
+                    Position = UDim2.new(0, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text = secDef.Name,
                     Font = Enum.Font.GothamBold,
@@ -1401,20 +1761,63 @@ function Library:CreateWindow(options)
                     TextStrokeTransparency = 1,
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
-                ThemeManager:Register(secTitle, "TextColor3", "Text")
-                
-                local divider = Utility:Create("Frame", {
-                    Parent = secFrame,
-                    Size = UDim2.new(1, 0, 0, 1),
-                    BackgroundTransparency = 0.5,
-                    BorderSizePixel = 0
+                ThemeManager:Register(titleLbl, "TextColor3", "Text")
+
+                local chevron = Utility:Create("TextLabel", {
+                    Parent = secTitle,
+                    Size = UDim2.new(0, 20, 1, 0),
+                    Position = UDim2.new(1, -20, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = "▼",
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 12,
+                    TextStrokeTransparency = 1,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    TextYAlignment = Enum.TextYAlignment.Center,
+                    Rotation = 0
                 })
-                ThemeManager:Register(divider, "BackgroundColor3", "Border")
-                
+                ThemeManager:Register(chevron, "TextColor3", "SubText")
+
+                local contentFrame = Utility:Create("Frame", {
+                    Parent = secFrame,
+                    Size = UDim2.new(1, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    ClipsDescendants = true
+                })
+                local contentLayout = Utility:Create("UIListLayout", {
+                    Parent = contentFrame,
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Padding = UDim.new(0, 10)
+                })
+
+                secDef.UpdateCollapse = function(state)
+                    if state then
+                        Animator:Tween(contentFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.25, Enum.EasingStyle.Quint)
+                        Animator:Tween(secFrame, {Size = UDim2.new(1, -20, 0, 52)}, 0.25, Enum.EasingStyle.Quint)
+                        Animator:Tween(chevron, {Rotation = -90}, 0.25, Enum.EasingStyle.Quint)
+                    else
+                        local targetH = contentLayout.AbsoluteContentSize.Y
+                        Animator:Tween(contentFrame, {Size = UDim2.new(1, 0, 0, targetH)}, 0.25, Enum.EasingStyle.Quint)
+                        Animator:Tween(secFrame, {Size = UDim2.new(1, -20, 0, targetH + 52)}, 0.25, Enum.EasingStyle.Quint)
+                        Animator:Tween(chevron, {Rotation = 0}, 0.25, Enum.EasingStyle.Quint)
+                    end
+                end
+
+                Library.Janitor:Add(secTitle.MouseButton1Click:Connect(function()
+                    secDef.Collapsed = not secDef.Collapsed
+                    secDef.UpdateCollapse(secDef.Collapsed)
+                end))
+                Library.Janitor:Add(secTitle.MouseEnter:Connect(function()
+                    Animator:Tween(titleLbl, {TextColor3 = ThemeManager.Themes.Default.Accent}, 0.15)
+                end))
+                Library.Janitor:Add(secTitle.MouseLeave:Connect(function()
+                    Animator:Tween(titleLbl, {TextColor3 = ThemeManager.Themes.Default.Text}, 0.15)
+                end))
+
                 for _, compDef in ipairs(secDef.Components) do
                     if compDef.Type == "Button" then
                         local btn = Utility:Create("TextButton", {
-                            Parent = secFrame,
+                            Parent = contentFrame,
                             Size = UDim2.new(1, 0, 0, 32),
                             AutoButtonColor = false,
                             Text = compDef.Name,
@@ -1444,10 +1847,9 @@ function Library:CreateWindow(options)
                         Library.Janitor:Add(btn.MouseButton1Click:Connect(function()
                             Library:SafeCallback(compDef.Callback)
                         end))
-                        
                      elseif compDef.Type == "Toggle" then
                          local tglFrame = Utility:Create("Frame", {
-                             Parent = secFrame,
+                             Parent = contentFrame,
                              Size = UDim2.new(1, 0, 0, 32),
                              BackgroundTransparency = 1
                          })
@@ -1549,6 +1951,7 @@ function Library:CreateWindow(options)
 
                          local flagObj = {
                              Value = state,
+                             Default = compDef.Default,
                              Set = function(self, val)
                                  state = val
                                  updateState(true)
@@ -1556,10 +1959,10 @@ function Library:CreateWindow(options)
                              end
                          }
                          if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
-                        
+
                     elseif compDef.Type == "Slider" then
                         local sldFrame = Utility:Create("Frame", {
-                            Parent = secFrame,
+                            Parent = contentFrame,
                             Size = UDim2.new(1, 0, 0, 48),
                             BackgroundTransparency = 1,
                             ClipsDescendants = false
@@ -1622,9 +2025,9 @@ function Library:CreateWindow(options)
 
                         local knobHitboxSize = 24
                         local knobHitbox = Utility:Create("TextButton", {
-                            Parent = fill,
+                            Parent = track,
                             Size = UDim2.new(0, knobHitboxSize, 0, knobHitboxSize),
-                            Position = UDim2.new(1, -knobHitboxSize/2, 0.5, -knobHitboxSize/2),
+                            Position = UDim2.new(0, -knobHitboxSize/2, 0.5, -knobHitboxSize/2),
                             BackgroundTransparency = 1,
                             Text = "",
                             AutoButtonColor = false,
@@ -1683,6 +2086,24 @@ function Library:CreateWindow(options)
                             fill.Size = UDim2.new(percent, 0, 1, 0)
                         end
 
+                        local function setKnobPosition(percent)
+                            knobHitbox.Position = UDim2.new(percent, -knobHitboxSize/2, 0.5, -knobHitboxSize/2)
+                        end
+
+                        local function updateTooltipPosition()
+                            local knobAbsX = knobHitbox.AbsolutePosition.X + knobHitbox.AbsoluteSize.X / 2
+                            local screenW = _curViewport.X
+                            local tooltipHalfW = 20
+                            local padding = 4
+                            local newX = 0
+                            if knobAbsX + tooltipHalfW + padding > screenW then
+                                newX = screenW - padding - tooltipHalfW - knobAbsX
+                            elseif knobAbsX - tooltipHalfW - padding < 0 then
+                                newX = padding + tooltipHalfW - knobAbsX
+                            end
+                            tooltip.Position = UDim2.new(0.5, newX, 0, -28)
+                        end
+
                         local function update(input)
                             local w = track.AbsoluteSize.X
                             if w == 0 then return end
@@ -1691,6 +2112,8 @@ function Library:CreateWindow(options)
                             valLbl.Text = tostring(value)
                             tooltipText.Text = tostring(value)
                             setFill(percent)
+                            setKnobPosition(percent)
+                            updateTooltipPosition()
                             Library:SafeCallback(compDef.Callback, value)
                             if compDef.Flag and ConfigManager.Flags[compDef.Flag] then
                                 ConfigManager.Flags[compDef.Flag].Value = value
@@ -1703,6 +2126,7 @@ function Library:CreateWindow(options)
                             tooltip.Visible = true
                             tooltipText.TextTransparency = 1
                             tooltip.Size = UDim2.new(0, 40, 0, 0)
+                            updateTooltipPosition()
                             Animator:Tween(tooltip, {Size = UDim2.new(0, 40, 0, 22)}, 0.15, Enum.EasingStyle.Back)
                             Animator:Tween(tooltipText, {TextTransparency = 0}, 0.15, Enum.EasingStyle.Back)
                             setKnobSize(knobSize + 4)
@@ -1768,24 +2192,28 @@ function Library:CreateWindow(options)
 
                         local percent = math.clamp((value - compDef.Min) / (compDef.Max - compDef.Min), 0, 1)
                         setFill(percent)
+                        setKnobPosition(percent)
 
                         local flagObj = {
                             Value = value,
+                            Default = compDef.Default,
                             Set = function(self, val)
                                 value = math.clamp(val, compDef.Min, compDef.Max)
                                 valLbl.Text = tostring(value)
                                 local p = math.clamp((value - compDef.Min) / (compDef.Max - compDef.Min), 0, 1)
                                 Animator:Tween(fill, {Size = UDim2.new(p, 0, 1, 0)}, 0.1)
+                                setKnobPosition(p)
+                                updateTooltipPosition()
                                 Library:SafeCallback(compDef.Callback, value)
                             end
                         }
                         if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
-                        
+
                     elseif compDef.Type == "Dropdown" then
                         local dpHeight = 52
                         local dpExpanded = 160
                         local dpFrame = Utility:Create("Frame", {
-                            Parent = secFrame,
+                            Parent = contentFrame,
                             Size = UDim2.new(1, 0, 0, dpHeight),
                             BackgroundTransparency = 1,
                             ClipsDescendants = true
@@ -1947,6 +2375,7 @@ function Library:CreateWindow(options)
                         
                         local flagObj = {
                             Value = dValue,
+                            Default = compDef.Default,
                             Set = function(self, val)
                                 dValue = val
                                 box.Text = " " .. tostring(val)
@@ -1954,11 +2383,675 @@ function Library:CreateWindow(options)
                             end
                         }
                         if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
+
+                    elseif compDef.Type == "ColorPicker" then
+                        local cpFrame = Utility:Create("Frame", {
+                            Parent = contentFrame,
+                            Size = UDim2.new(1, 0, 0, 180),
+                            BackgroundTransparency = 1
+                        })
+                        Library.Janitor:Add(cpFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                            RefreshLayout()
+                        end))
+                        
+                        local cpLbl = Utility:Create("TextLabel", {
+                            Parent = cpFrame,
+                            Size = UDim2.new(1, -32, 0, 20),
+                            Position = UDim2.new(0, 0, 0, 0),
+                            BackgroundTransparency = 1,
+                            Text = compDef.Name,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 13,
+                            TextXAlignment = Enum.TextXAlignment.Left
+                        })
+                        ThemeManager:Register(cpLbl, "TextColor3", "Text")
+                        
+                        local preview = Utility:Create("Frame", {
+                            Parent = cpFrame,
+                            Size = UDim2.new(0, 20, 0, 20),
+                            Position = UDim2.new(1, -20, 0, 0),
+                            BackgroundColor3 = compDef.Default
+                        })
+                        Utility:Create("UICorner", {Parent = preview, CornerRadius = UDim.new(0, 4)})
+                        local previewStroke = Utility:Create("UIStroke", {Parent = preview, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(previewStroke, "Color", "Border")
+                        
+                        local hueSlider = Utility:Create("TextButton", {
+                            Parent = cpFrame,
+                            Size = UDim2.new(1, 0, 0, 14),
+                            Position = UDim2.new(0, 0, 0, 26),
+                            Text = "",
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            AutoButtonColor = false
+                        })
+                        Utility:Create("UICorner", {Parent = hueSlider, CornerRadius = UDim.new(0, 6)})
+                        local hueStroke = Utility:Create("UIStroke", {Parent = hueSlider, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(hueStroke, "Color", "Border")
+                        Utility:Create("UIGradient", {
+                            Parent = hueSlider,
+                            Color = ColorSequence.new({
+                                ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 1, 1)),
+                                ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6, 1, 1)),
+                                ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6, 1, 1)),
+                                ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6, 1, 1)),
+                                ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6, 1, 1)),
+                                ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6, 1, 1)),
+                                ColorSequenceKeypoint.new(1, Color3.fromHSV(0, 1, 1))
+                            })
+                        })
+                        
+                        local hueThumb = Utility:Create("Frame", {
+                            Parent = hueSlider,
+                            Size = UDim2.new(0, 12, 0, 12),
+                            Position = UDim2.new(0, 0, 0.5, 0),
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            AnchorPoint = Vector2.new(0.5, 0.5),
+                            ZIndex = 3
+                        })
+                        Utility:Create("UICorner", {Parent = hueThumb, CornerRadius = UDim.new(1, 0)})
+                        Utility:Create("UIStroke", {Parent = hueThumb, Thickness = 2, Color = Color3.new(0, 0, 0), Transparency = 0})
+                        
+                        local square = Utility:Create("TextButton", {
+                            Parent = cpFrame,
+                            Size = UDim2.new(1, 0, 0, 100),
+                            Position = UDim2.new(0, 0, 0, 46),
+                            Text = "",
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            AutoButtonColor = false,
+                            ClipsDescendants = true
+                        })
+                        Utility:Create("UICorner", {Parent = square, CornerRadius = UDim.new(0, 12)})
+                        local squareStroke = Utility:Create("UIStroke", {Parent = square, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(squareStroke, "Color", "Border")
+                        
+                        local squareBase = Utility:Create("Frame", {
+                            Parent = square,
+                            Size = UDim2.new(1, 0, 1, 0),
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            BackgroundTransparency = 0,
+                            BorderSizePixel = 0,
+                            ZIndex = 1
+                        })
+                        Utility:Create("UICorner", {Parent = squareBase, CornerRadius = UDim.new(0, 12)})
+                        
+                        local whiteOverlay = Utility:Create("Frame", {
+                            Parent = square,
+                            Size = UDim2.new(1, 0, 1, 0),
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            BackgroundTransparency = 0,
+                            BorderSizePixel = 0,
+                            ZIndex = 2
+                        })
+                        Utility:Create("UICorner", {Parent = whiteOverlay, CornerRadius = UDim.new(0, 12)})
+                        Utility:Create("UIGradient", {
+                            Parent = whiteOverlay,
+                            Rotation = 0,
+                            Transparency = NumberSequence.new({
+                                NumberSequenceKeypoint.new(0, 0),
+                                NumberSequenceKeypoint.new(1, 1)
+                            })
+                        })
+                        
+                        local blackOverlay = Utility:Create("Frame", {
+                            Parent = square,
+                            Size = UDim2.new(1, 0, 1, 0),
+                            BackgroundColor3 = Color3.new(0, 0, 0),
+                            BackgroundTransparency = 0,
+                            BorderSizePixel = 0,
+                            ZIndex = 3
+                        })
+                        Utility:Create("UICorner", {Parent = blackOverlay, CornerRadius = UDim.new(0, 12)})
+                        Utility:Create("UIGradient", {
+                            Parent = blackOverlay,
+                            Rotation = 90,
+                            Transparency = NumberSequence.new({
+                                NumberSequenceKeypoint.new(0, 1),
+                                NumberSequenceKeypoint.new(1, 0)
+                            })
+                        })
+                        
+                        local crosshair = Utility:Create("Frame", {
+                            Parent = square,
+                            Size = UDim2.new(0, 12, 0, 12),
+                            BackgroundColor3 = Color3.new(1, 1, 1),
+                            AnchorPoint = Vector2.new(0.5, 0.5),
+                            ZIndex = 4
+                        })
+                        Utility:Create("UICorner", {Parent = crosshair, CornerRadius = UDim.new(1, 0)})
+                        Utility:Create("UIStroke", {Parent = crosshair, Thickness = 2, Color = Color3.new(0, 0, 0), Transparency = 0})
+                        
+                        local hexBox = Utility:Create("TextBox", {
+                            Parent = cpFrame,
+                            Size = UDim2.new(1, 0, 0, 28),
+                            Position = UDim2.new(0, 0, 0, 152),
+                            Text = "",
+                            PlaceholderText = "#FFFFFF",
+                            PlaceholderColor3 = ThemeManager.Themes.Default.SubText,
+                            Font = Enum.Font.Code,
+                            TextSize = 13,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            ClearTextOnFocus = false
+                        })
+                        ThemeManager:Register(hexBox, "BackgroundColor3", "Container")
+                        ThemeManager:Register(hexBox, "TextColor3", "Text")
+                        Utility:Create("UICorner", {Parent = hexBox, CornerRadius = UDim.new(0, 6)})
+                        local hexStroke = Utility:Create("UIStroke", {Parent = hexBox, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(hexStroke, "Color", "Border")
+                        Utility:Create("UIPadding", {
+                            Parent = hexBox,
+                            PaddingLeft = UDim.new(0, 10),
+                            PaddingRight = UDim.new(0, 10)
+                        })
+                        
+                        local currentColor = compDef.Default
+                        local h, s, v = Utility.RgbToHsv(currentColor)
+                        
+                        local function updateFromHSV()
+                            currentColor = Color3.fromHSV(h, s, v)
+                            squareBase.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                            preview.BackgroundColor3 = currentColor
+                            hueThumb.Position = UDim2.new(math.clamp(h, 0, 0.9999), 0, 0.5, 0)
+                            local sqSize = square.AbsoluteSize
+                            local cxMargin = 6 / math.max(sqSize.X, 1)
+                            local cyMargin = 6 / math.max(sqSize.Y, 1)
+                            crosshair.Position = UDim2.new(
+                                math.clamp(s, cxMargin, 1 - cxMargin),
+                                0,
+                                math.clamp(1 - v, cyMargin, 1 - cyMargin),
+                                0
+                            )
+                            if not hexBox:IsFocused() then
+                                hexBox.Text = Utility.RgbToHex(currentColor)
+                            end
+                            Library:SafeCallback(compDef.Callback, currentColor)
+                        end
+                        
+                        local function setHueFromInput(input)
+                            local relX = (input.Position.X - hueSlider.AbsolutePosition.X) / hueSlider.AbsoluteSize.X
+                            h = math.clamp(relX, 0, 0.9999)
+                            updateFromHSV()
+                        end
+                        
+                        local function setSVFromInput(input)
+                            local relX = (input.Position.X - square.AbsolutePosition.X) / square.AbsoluteSize.X
+                            local relY = (input.Position.Y - square.AbsolutePosition.Y) / square.AbsoluteSize.Y
+                            s = math.clamp(relX, 0, 1)
+                            v = math.clamp(1 - relY, 0, 1)
+                            updateFromHSV()
+                        end
+                        
+                        local activeDrag = nil
+                        local dragInput = nil
+                        
+                        local function endDrag()
+                            activeDrag = nil
+                            dragInput = nil
+                        end
+                        
+                        hueSlider.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                                activeDrag = "hue"
+                                dragInput = input
+                                setHueFromInput(input)
+                            end
+                        end)
+                        
+                        square.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                                activeDrag = "square"
+                                dragInput = input
+                                setSVFromInput(input)
+                            end
+                        end)
+                        
+                        Library.Janitor:Add(UserInputService.InputChanged:Connect(function(input)
+                            if not activeDrag then return end
+                            if input.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then return end
+                            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                                if activeDrag == "hue" then
+                                    setHueFromInput(input)
+                                elseif activeDrag == "square" then
+                                    setSVFromInput(input)
+                                end
+                            end
+                        end))
+                        Library.Janitor:Add(UserInputService.InputEnded:Connect(function(input)
+                            if not activeDrag then return end
+                            if input.UserInputType == Enum.UserInputType.Touch and input ~= dragInput then return end
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                                endDrag()
+                            end
+                        end))
+                        
+                        hexBox.FocusLost:Connect(function()
+                            local newColor = Utility.HexToRgb(hexBox.Text)
+                            if newColor then
+                                h, s, v = Utility.RgbToHsv(newColor)
+                                currentColor = newColor
+                                updateFromHSV()
+                            else
+                                hexBox.Text = Utility.RgbToHex(currentColor)
+                            end
+                        end)
+                        
+                        updateFromHSV()
+                        
+                        local flagObj = {
+                            Value = currentColor,
+                            Default = compDef.Default,
+                            Set = function(self, color)
+                                h, s, v = Utility.RgbToHsv(color)
+                                currentColor = color
+                                updateFromHSV()
+                                Library:SafeCallback(compDef.Callback, currentColor)
+                            end
+                        }
+                        if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
+
+                    elseif compDef.Type == "Keybind" then
+                        local kbFrame = Utility:Create("Frame", {
+                            Parent = contentFrame,
+                            Size = UDim2.new(1, 0, 0, 32),
+                            BackgroundTransparency = 1
+                        })
+                        Library.Janitor:Add(kbFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                            RefreshLayout()
+                        end))
+                        
+                        local kbLbl = Utility:Create("TextLabel", {
+                            Parent = kbFrame,
+                            Size = UDim2.new(1, -92, 1, 0),
+                            BackgroundTransparency = 1,
+                            Text = compDef.Name,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 13,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            TextTruncate = Enum.TextTruncate.AtEnd
+                        })
+                        ThemeManager:Register(kbLbl, "TextColor3", "Text")
+                        
+                        local kbBtn = Utility:Create("TextButton", {
+                            Parent = kbFrame,
+                            Size = UDim2.new(0, 80, 0, 24),
+                            Position = UDim2.new(1, -80, 0.5, -12),
+                            Text = "",
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 12,
+                            AutoButtonColor = false
+                        })
+                        ThemeManager:Register(kbBtn, "BackgroundColor3", "Container")
+                        ThemeManager:Register(kbBtn, "TextColor3", "SubText")
+                        Utility:Create("UICorner", {Parent = kbBtn, CornerRadius = UDim.new(0, 6)})
+                        local kbStroke = Utility:Create("UIStroke", {Parent = kbBtn, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(kbStroke, "Color", "Border")
+                        
+                        local function formatKey(key)
+                            if not key or typeof(key) ~= "EnumItem" then return "None" end
+                            if key.EnumType == Enum.KeyCode then
+                                local n = key.Name
+                                if n == "Space" then return "Space"
+                                elseif n == "LeftShift" then return "LShift"
+                                elseif n == "RightShift" then return "RShift"
+                                elseif n == "LeftControl" then return "LCtrl"
+                                elseif n == "RightControl" then return "RCtrl"
+                                elseif n == "LeftAlt" then return "LAlt"
+                                elseif n == "RightAlt" then return "RAlt"
+                                elseif n == "Backspace" then return "Backspace"
+                                elseif n == "Return" then return "Enter"
+                                elseif n == "Escape" then return "Esc"
+                                elseif n == "CapsLock" then return "Caps"
+                                elseif n == "NumLock" then return "Num"
+                                elseif n == "ScrollLock" then return "Scroll"
+                                else return n
+                                end
+                            elseif key.EnumType == Enum.UserInputType then
+                                local n = key.Name
+                                if n == "MouseButton1" then return "MB1"
+                                elseif n == "MouseButton2" then return "MB2"
+                                elseif n == "MouseButton3" then return "MB3"
+                                else return n
+                                end
+                            end
+                            return "None"
+                        end
+                        
+                        local function isValidBind(input)
+                            if input.UserInputType == Enum.UserInputType.Keyboard then
+                                return input.KeyCode ~= Enum.KeyCode.Unknown
+                            end
+                            return false
+                        end
+                        
+                        local currentKey = compDef.Default
+                        local listening = false
+                        local listenConn = nil
+                        
+                        local function updateDisplay()
+                            if listening then
+                                kbBtn.Text = "..."
+                                kbBtn.TextColor3 = ThemeManager.Themes.Default.Accent
+                                kbStroke.Transparency = 0
+                            else
+                                kbBtn.Text = formatKey(currentKey)
+                                kbBtn.TextColor3 = ThemeManager.Themes.Default.SubText
+                                kbStroke.Transparency = 0.5
+                            end
+                        end
+                        
+                        local function stopListening()
+                            listening = false
+                            if listenConn then
+                                listenConn:Disconnect()
+                                listenConn = nil
+                            end
+                            if activeKeybindStop == stopListening then
+                                activeKeybindStop = nil
+                            end
+                            updateDisplay()
+                        end
+                        
+                        local function startListening()
+                            if activeKeybindStop then
+                                activeKeybindStop()
+                            end
+                            listening = true
+                            activeKeybindStop = stopListening
+                            updateDisplay()
+                            
+                            listenConn = UserInputService.InputBegan:Connect(function(input, processed)
+                                if processed then return end
+                                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Escape then
+                                    stopListening()
+                                    return
+                                end
+                            if isValidBind(input) then
+                                if input.UserInputType == Enum.UserInputType.Keyboard then
+                                    currentKey = input.KeyCode
+                                else
+                                    currentKey = input.UserInputType
+                                end
+                                if compDef.Flag and ConfigManager.Flags[compDef.Flag] then
+                                    ConfigManager.Flags[compDef.Flag].Value = currentKey
+                                end
+                                stopListening()
+                                Library:SafeCallback(compDef.Callback, currentKey)
+                            end
+                            end)
+                            Library.Janitor:Add(listenConn)
+                        end
+                        
+                        Library.Janitor:Add(kbBtn.MouseButton1Click:Connect(function()
+                            if listening then
+                                stopListening()
+                            else
+                                startListening()
+                            end
+                        end))
+                        
+                        updateDisplay()
+                        
+                        local flagObj = {
+                            Value = currentKey,
+                            Default = compDef.Default,
+                            Set = function(self, key)
+                                currentKey = key
+                                self.Value = key
+                                if listening then stopListening() end
+                                updateDisplay()
+                                Library:SafeCallback(compDef.Callback, currentKey)
+                            end
+                        }
+                        if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
+
+                    elseif compDef.Type == "Input" then
+                        local inFrame = Utility:Create("Frame", {
+                            Parent = contentFrame,
+                            Size = UDim2.new(1, 0, 0, 32),
+                            BackgroundTransparency = 1
+                        })
+                        Library.Janitor:Add(inFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                            RefreshLayout()
+                        end))
+                        
+                        local inLbl = Utility:Create("TextLabel", {
+                            Parent = inFrame,
+                            Size = UDim2.new(1, -132, 1, 0),
+                            BackgroundTransparency = 1,
+                            Text = compDef.Name,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 13,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            TextTruncate = Enum.TextTruncate.AtEnd
+                        })
+                        ThemeManager:Register(inLbl, "TextColor3", "Text")
+                        
+                        local inBox = Utility:Create("TextBox", {
+                            Parent = inFrame,
+                            Size = UDim2.new(0, 120, 0, 24),
+                            Position = UDim2.new(1, -120, 0.5, -12),
+                            Text = "",
+                            PlaceholderText = compDef.Placeholder or compDef.Name,
+                            PlaceholderColor3 = ThemeManager.Themes.Default.SubText,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 12,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            ClearTextOnFocus = false
+                        })
+                        inBox.Text = compDef.Default or ""
+                        ThemeManager:Register(inBox, "BackgroundColor3", "Container")
+                        ThemeManager:Register(inBox, "TextColor3", "Text")
+                        Utility:Create("UIPadding", {Parent = inBox, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
+                        Utility:Create("UICorner", {Parent = inBox, CornerRadius = UDim.new(0, 6)})
+                        local inStroke = Utility:Create("UIStroke", {Parent = inBox, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(inStroke, "Color", "Border")
+                        
+                        local currentText = compDef.Default or ""
+                        local lastFired = currentText
+                        local debounceThread = nil
+                        
+                        local function fireCallback()
+                            lastFired = currentText
+                            Library:SafeCallback(compDef.Callback, currentText)
+                        end
+                        
+                        Library.Janitor:Add(inBox:GetPropertyChangedSignal("Text"):Connect(function()
+                            currentText = inBox.Text
+                            if debounceThread then task.cancel(debounceThread) end
+                            debounceThread = task.delay(0.3, function()
+                                debounceThread = nil
+                                if currentText ~= lastFired then
+                                    fireCallback()
+                                end
+                            end)
+                        end))
+                        
+                        Library.Janitor:Add(inBox.FocusLost:Connect(function(enterPressed)
+                            if debounceThread then
+                                task.cancel(debounceThread)
+                                debounceThread = nil
+                            end
+                            if currentText ~= lastFired then
+                                fireCallback()
+                            end
+                        end))
+                        
+                        Library.Janitor:Add(inBox.Focused:Connect(function()
+                            Animator:Tween(inStroke, {Color = ThemeManager.Themes.Default.Accent, Transparency = 0}, 0.2)
+                        end))
+                        Library.Janitor:Add(inBox.FocusLost:Connect(function()
+                            Animator:Tween(inStroke, {Color = ThemeManager.Themes.Default.Border, Transparency = 0.5}, 0.2)
+                        end))
+                        
+                        Library.Janitor:Add(inBox.MouseEnter:Connect(function()
+                            if not inBox:IsFocused() then
+                                Animator:Tween(inStroke, {Transparency = 0.3}, 0.2)
+                            end
+                        end))
+                        Library.Janitor:Add(inBox.MouseLeave:Connect(function()
+                            if not inBox:IsFocused() then
+                                Animator:Tween(inStroke, {Transparency = 0.5}, 0.2)
+                            end
+                        end))
+                        
+                        local flagObj = {
+                            Value = currentText,
+                            Default = compDef.Default or "",
+                            Set = function(self, text)
+                                currentText = text
+                                if debounceThread then
+                                    task.cancel(debounceThread)
+                                    debounceThread = nil
+                                end
+                                inBox.Text = text
+                                lastFired = text
+                                Library:SafeCallback(compDef.Callback, currentText)
+                            end
+                        }
+                        if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
+
+                    elseif compDef.Type == "Paragraph" then
+                        local pgFrame = Utility:Create("Frame", {
+                            Parent = contentFrame,
+                            Size = UDim2.new(1, 0, 0, 80),
+                            BackgroundTransparency = 1
+                        })
+                        Library.Janitor:Add(pgFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                            RefreshLayout()
+                        end))
+                        
+                        local pgLbl = Utility:Create("TextLabel", {
+                            Parent = pgFrame,
+                            Size = UDim2.new(1, 0, 0, 14),
+                            BackgroundTransparency = 1,
+                            Text = compDef.Name,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 12,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            TextTruncate = Enum.TextTruncate.AtEnd
+                        })
+                        ThemeManager:Register(pgLbl, "TextColor3", "Text")
+                        
+                        local pgScroll = Utility:Create("ScrollingFrame", {
+                            Parent = pgFrame,
+                            Size = UDim2.new(1, 0, 0, 60),
+                            Position = UDim2.new(0, 0, 0, 20),
+                            BackgroundTransparency = 0,
+                            BorderSizePixel = 0,
+                            ScrollBarThickness = 0,
+                            ScrollBarImageTransparency = 1,
+                            CanvasSize = UDim2.new(0, 0, 0, 0),
+                            ClipsDescendants = true
+                        })
+                        ThemeManager:Register(pgScroll, "BackgroundColor3", "Container")
+                        Utility:Create("UICorner", {Parent = pgScroll, CornerRadius = UDim.new(0, 6)})
+                        local pgStroke = Utility:Create("UIStroke", {Parent = pgScroll, Thickness = 1, Color = ThemeManager.Themes.Default.Border, Transparency = 0.5})
+                        ThemeManager:Register(pgStroke, "Color", "Border")
+                        
+                        local pgBox = Utility:Create("TextBox", {
+                            Parent = pgScroll,
+                            Size = UDim2.new(1, -16, 0, 0),
+                            Position = UDim2.new(0, 8, 0, 6),
+                            Text = "",
+                            PlaceholderText = compDef.Placeholder or compDef.Name,
+                            PlaceholderColor3 = ThemeManager.Themes.Default.SubText,
+                            Font = Enum.Font.GothamMedium,
+                            TextSize = 12,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            TextYAlignment = Enum.TextYAlignment.Top,
+                            TextWrapped = true,
+                            ClearTextOnFocus = false,
+                            BackgroundTransparency = 1,
+                            AutomaticSize = Enum.AutomaticSize.Y
+                        })
+                        pgBox.Text = compDef.Default or ""
+                        ThemeManager:Register(pgBox, "TextColor3", "Text")
+                        
+                        local currentText = compDef.Default or ""
+                        local lastFired = currentText
+                        local debounceThread = nil
+                        local pgMinHeight = 60
+                        local pgMaxHeight = 130
+                        
+                        local function fireCallback()
+                            lastFired = currentText
+                            Library:SafeCallback(compDef.Callback, currentText)
+                        end
+                        
+                        local function updateSize()
+                            local contentHeight = pgBox.AbsoluteSize.Y + 12
+                            local sfHeight = math.clamp(contentHeight, pgMinHeight, pgMaxHeight)
+                            pgScroll.Size = UDim2.new(1, 0, 0, sfHeight)
+                            pgScroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+                            pgFrame.Size = UDim2.new(1, 0, 0, sfHeight + 26)
+                        end
+                        
+                        Library.Janitor:Add(pgBox:GetPropertyChangedSignal("Text"):Connect(function()
+                            currentText = pgBox.Text
+                            if debounceThread then task.cancel(debounceThread) end
+                            debounceThread = task.delay(0.3, function()
+                                debounceThread = nil
+                                if currentText ~= lastFired then
+                                    fireCallback()
+                                end
+                            end)
+                        end))
+                        
+                        Library.Janitor:Add(pgBox.FocusLost:Connect(function(enterPressed)
+                            if debounceThread then
+                                task.cancel(debounceThread)
+                                debounceThread = nil
+                            end
+                            if currentText ~= lastFired then
+                                fireCallback()
+                            end
+                        end))
+                        
+                        Library.Janitor:Add(pgBox:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateSize))
+                        task.defer(updateSize)
+                        
+                        Library.Janitor:Add(pgBox.Focused:Connect(function()
+                            Animator:Tween(pgStroke, {Color = ThemeManager.Themes.Default.Accent, Transparency = 0}, 0.2)
+                        end))
+                        Library.Janitor:Add(pgBox.FocusLost:Connect(function()
+                            Animator:Tween(pgStroke, {Color = ThemeManager.Themes.Default.Border, Transparency = 0.5}, 0.2)
+                        end))
+                        
+                        Library.Janitor:Add(pgBox.MouseEnter:Connect(function()
+                            if not pgBox:IsFocused() then
+                                Animator:Tween(pgStroke, {Transparency = 0.3}, 0.2)
+                            end
+                        end))
+                        Library.Janitor:Add(pgBox.MouseLeave:Connect(function()
+                            if not pgBox:IsFocused() then
+                                Animator:Tween(pgStroke, {Transparency = 0.5}, 0.2)
+                            end
+                        end))
+                        
+                        local flagObj = {
+                            Value = currentText,
+                            Default = compDef.Default or "",
+                            Set = function(self, text)
+                                currentText = text
+                                if debounceThread then
+                                    task.cancel(debounceThread)
+                                    debounceThread = nil
+                                end
+                                pgBox.Text = text
+                                lastFired = text
+                                Library:SafeCallback(compDef.Callback, currentText)
+                            end
+                        }
+                        if compDef.Flag then ConfigManager.Flags[compDef.Flag] = flagObj end
+
+                    elseif compDef.Type == "Custom" then
+                        compDef.Build(contentFrame, contentLayout)
+                        
                     end
                 end
                 
+                contentFrame.Size = UDim2.new(1, 0, 0, contentLayout.AbsoluteContentSize.Y)
                 secFrame.Size = UDim2.new(1, -20, 0, secLayout.AbsoluteContentSize.Y + 28)
-                table.insert(sectionRefs, {Frame = secFrame, Layout = secLayout})
+                table.insert(sectionRefs, {Frame = secFrame, Layout = secLayout, ContentFrame = contentFrame, ContentLayout = contentLayout, SecDef = secDef})
             end
             
             scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
@@ -1970,27 +3063,64 @@ function Library:CreateWindow(options)
         
         -- Section definition storage (called during demo setup, stores definitions only)
         function tabObj:CreateSection(secName)
-            local secDef = {Name = secName, Components = {}}
+            local secDef = {Name = secName, Components = {}, Collapsed = false, UpdateCollapse = nil}
             table.insert(tabObj.SectionDefs, secDef)
-            
+
             local secMethods = {}
-            
+
             function secMethods:CreateButton(btnName, callback)
                 table.insert(secDef.Components, {Type = "Button", Name = btnName, Callback = callback})
             end
-            
+
             function secMethods:CreateToggle(tglName, default, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
                 table.insert(secDef.Components, {Type = "Toggle", Name = tglName, Default = default, Callback = callback, Flag = flagName})
             end
-            
+
             function secMethods:CreateSlider(sldName, min, max, default, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
                 table.insert(secDef.Components, {Type = "Slider", Name = sldName, Min = min, Max = max, Default = default, Callback = callback, Flag = flagName})
             end
-            
+
             function secMethods:CreateDropdown(dpName, items, default, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
                 table.insert(secDef.Components, {Type = "Dropdown", Name = dpName, Items = items, Default = default, Callback = callback, Flag = flagName})
             end
+
+            function secMethods:CreateColorPicker(cpName, default, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
+                table.insert(secDef.Components, {Type = "ColorPicker", Name = cpName, Default = default, Callback = callback, Flag = flagName})
+            end
+
+            function secMethods:CreateKeybind(kbName, default, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
+                table.insert(secDef.Components, {Type = "Keybind", Name = kbName, Default = default, Callback = callback, Flag = flagName})
+            end
+
+            function secMethods:CreateInput(inpName, default, placeholder, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
+                table.insert(secDef.Components, {Type = "Input", Name = inpName, Default = default, Placeholder = placeholder, Callback = callback, Flag = flagName})
+            end
+
+            function secMethods:CreateParagraph(pgName, default, placeholder, callback, flagName)
+                if not flagName then flagName = ConfigManager:NextAutoFlag() end
+                table.insert(secDef.Components, {Type = "Paragraph", Name = pgName, Default = default, Placeholder = placeholder, Callback = callback, Flag = flagName})
+            end
             
+            function secMethods:CreateCustom(buildFn)
+                table.insert(secDef.Components, {Type = "Custom", Build = buildFn})
+            end
+
+            function secMethods:SetCollapsed(state)
+                secDef.Collapsed = state and true or false
+                if secDef.UpdateCollapse then secDef.UpdateCollapse(secDef.Collapsed) end
+            end
+
+            function secMethods:ToggleCollapsed()
+                secDef.Collapsed = not secDef.Collapsed
+                if secDef.UpdateCollapse then secDef.UpdateCollapse(secDef.Collapsed) end
+            end
+
             return secMethods
         end
         
@@ -2367,11 +3497,11 @@ function Library:CreateWindow(options)
                 BackgroundColor3 = ThemeManager.Themes.Default.Background,
                 GroupTransparency = 0
             })
-            ThemeManager:Register(canvasGroup, "BackgroundColor3", "Background")
-            local scroll = Utility:Create("ScrollingFrame", {
-                Parent = canvasGroup,
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundColor3 = ThemeManager.Themes.Default.Background,
+         ThemeManager:Register(canvasGroup, "BackgroundColor3", "Background")
+         local scroll = Utility:Create("ScrollingFrame", {
+            Parent = canvasGroup,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = ThemeManager.Themes.Default.Background,
                 BackgroundTransparency = 0,
                 ScrollBarThickness = 0,
                 CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -2744,17 +3874,48 @@ function Library:CreateWindow(options)
         end
     end)
     displaySec:CreateButton("Reset to Default", function()
+        -- 1. Reset theme to default
         ThemeManager:SetTheme("Midnight")
-        windowObj.UserOpacity = 0.20
-        canvasGroup.GroupTransparency = 0.20
-        local shadow = shadowFrame:FindFirstChild("Shadow")
-        if shadow then
-            shadow.ImageTransparency = 1 - (0.6 * (80 / 100))
+
+        -- 2. Reset all registered components (sliders, toggles, dropdowns) to their Default values
+        Library:ResetAll()
+
+        -- 3. Reset window position and size to defaults
+        if windowObj.Maximized then
+            windowObj.Maximized = false
         end
-        NotificationManager:Notify("Reset", "UI settings reset to default.", 3)
+        if windowObj.Minimized then
+            windowObj.Minimized = false
+        end
+        Animator:Tween(canvasGroup, {Size = windowObj.DefaultSize, Position = windowObj.DefaultPosition}, 0.4, Enum.EasingStyle.Quint)
+        if shadowFrame and shadowFrame.Parent then
+            Animator:Tween(shadowFrame, {Size = windowObj.DefaultSize, Position = windowObj.DefaultPosition}, 0.4, Enum.EasingStyle.Quint)
+        end
+
+        -- 4. Switch to default tab (Home - first tab)
+        if windowObj.Tabs and windowObj.Tabs[1] and windowObj.Tabs[1].Select then
+            windowObj.Tabs[1].Select()
+        end
+
+        -- 5. Reset FAB position to default (left center, mobile/tablet only)
+        if isMobile and fab then
+            fabStoredPos = UDim2.new(0, 0, 0.5, 0)
+            fab.Position = fabStoredPos
+        end
+
+        -- 6. Make sure UI is visible (in case it was hidden)
+        if windowObj.Hidden then
+            windowObj.Hidden = false
+            canvasGroup.GroupTransparency = windowObj.UserOpacity
+            canvasGroup.Visible = true
+            shadowFrame.Visible = true
+            if dragBar then dragBar.Visible = true end
+        end
+
+        NotificationManager:Notify("Reset", "UI reset to default.", 3)
     end)
     local themeSec = customizeTab:CreateSection("Theme Presets")
-    local presetNames = {"Midnight", "Dark", "Light", "Forest", "Ruby", "Ocean", "Sunset", "PurpleHaze", "Mint", "Crimson", "Slate", "Neon", "CottonCandy", "Sunrise"}
+    local presetNames = {"Midnight", "Dark", "Light", "Noir", "Forest", "Ruby", "Ocean", "Cyber", "Sunset", "PurpleHaze", "Mint", "Crimson", "Slate", "Neon", "Espresso", "Vapor", "CottonCandy", "Sunrise"}
     for _, name in ipairs(presetNames) do
         themeSec:CreateButton(name, function()
             ThemeManager:SetTheme(name)
@@ -2765,6 +3926,31 @@ function Library:CreateWindow(options)
     -- Settings tab (standard sections)
     local settingsTab = windowObj:CreateTab("Settings", 9992)
     local uiSec = settingsTab:CreateSection("Settings")
+
+    -- Anti-AFK: silently prevents Roblox's AFK kicker.
+    -- Uses the Idled event (only fires when the player has been idle for ~20 minutes)
+    -- and a corner click at Vector2.new(0,0) (top-left pixel, off any game UI).
+    local antiAfkConn = nil
+    local function setAntiAfk(on)
+        if antiAfkConn then
+            antiAfkConn:Disconnect()
+            antiAfkConn = nil
+        end
+        if on then
+            antiAfkConn = Players.LocalPlayer.Idled:Connect(function()
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                end)
+            end)
+            self.Janitor:Add(antiAfkConn)
+        end
+    end
+    setAntiAfk(true)
+
+    uiSec:CreateToggle("Anti-AFK", true, function(val)
+        setAntiAfk(val)
+    end)
     uiSec:CreateToggle("Enable Notifications", true, function(val)
         NotificationManager.Enabled = val
     end)
@@ -2772,9 +3958,17 @@ function Library:CreateWindow(options)
         Library:Unload()
     end)
     local keybindSec = settingsTab:CreateSection("Keybind")
-    keybindSec:CreateButton("Toggle Keybind: RightShift", function()
-        NotificationManager:Notify("Keybind", "Toggle UI with Right Shift.", 3)
-    end)
+    keybindSec:CreateKeybind("Toggle UI", Enum.KeyCode.RightShift, function(newKey)
+        local display = "Toggle UI with "
+        if typeof(newKey) == "EnumItem" then
+            if newKey.EnumType == Enum.KeyCode then
+                display = display .. (newKey == Enum.KeyCode.RightShift and "Right Shift" or newKey.Name)
+            else
+                display = display .. newKey.Name
+            end
+        end
+        NotificationManager:Notify("Keybind", display, 3)
+    end, "ToggleUI")
     
     -- Public API: SetScriptInfo
     function windowObj:SetScriptInfo(text)
