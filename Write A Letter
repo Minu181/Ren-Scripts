@@ -1015,7 +1015,7 @@ end
 function ui_lib:add_bind(parent, flag, text, default, cb)
 	local cur_bind = default
 	local listening = false
-	self.flags[flag] = default.Name
+	self.flags[flag] = default and default.Name or "None"
 
 	local cont = Instance.new("Frame")
 	cont.Size = UDim2.new(1, 0, 0, 38)
@@ -1038,7 +1038,7 @@ function ui_lib:add_bind(parent, flag, text, default, cb)
 	bBtn.Size = UDim2.new(0, 75, 0, 24)
 	bBtn.Position = UDim2.new(1, -75, 0.5, -12)
 	bBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	bBtn.Text = cur_bind.Name
+	bBtn.Text = cur_bind and cur_bind.Name or "None"
 	bBtn.Font = theme.font
 	bBtn.TextColor3 = theme.accent
 	bBtn.TextSize = 12
@@ -3027,15 +3027,15 @@ lib:add_toggle(miscSec, "notifs", "Notifications", false, function(state)
 	end
 end)
 
-local antiAfkKey = Enum.KeyCode.None
-lib:add_bind(miscSec, "anti_afk_key", "Anti-AFK Key", Enum.KeyCode.None, function(key)
+local antiAfkKey = nil
+lib:add_bind(miscSec, "anti_afk_key", "Anti-AFK Key", nil, function(key)
 	antiAfkKey = key
 end)
 lib:add_toggle(miscSec, "anti_afk", "Anti-AFK", false, function(state)
 	if state then
 		if not _G.__LUAU_ANTIAFK_CONN__ then
 			_G.__LUAU_ANTIAFK_CONN__ = Players.LocalPlayer.Idled:Connect(function()
-				if antiAfkKey ~= Enum.KeyCode.None then
+				if antiAfkKey then
 					vim:SendKeyEvent(true, antiAfkKey, false, game)
 					vim:SendKeyEvent(false, antiAfkKey, false, game)
 				else
